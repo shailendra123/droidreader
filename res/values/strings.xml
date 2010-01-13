@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <string name="app_name">DroidReader</string>
+<string name="open_title">Open PDF File...</string>
+<string name="error_no_filemanager_installed">No filemanager found that we could use!</string>
+
+<string name="error_opening_document">Error trying to open the document! Note that passwords are not yet supported/implemented.</string>
+<string name="error_only_file_uris">Sorry, only &quot;file://&quot; URIs are currently supported.</string>
+<string name="status_no_document">No document loaded.</string>
+<string name="status_page_rendering">Rendering page...</string>
+<string name="eula_title">License</string>
+<string name="eula_accept">Accept</string>
+<string name="eula_refuse">Refuse</string>
+<string name="app_desc">An Open Source PDF Reader for the Android Platform</string>
+</resources>
