@@ -385,25 +385,6 @@ JNIEXPORT void JNICALL
 		unsigned int *col = pixmap->samples;
 		int c = 0;
 		for(val = 0; val < length; val++) {
-			/*
-			if(val < 10000) {
-				col[val] = 0xFF000000;
-			} else if(val < 20000) {
-				col[val] = 0x00FF0000;
-			} else if(val < 30000) {
-				col[val] = 0x0000FF00;
-			} else if(val < 40000) {
-				col[val] = 0x000000FF;
-			}
-			//unsigned int col_old = col[val];
-			//col[val] = col[val] << 8;
-			//if(col_old != 0xFFFFFFFF && val < 40000) {
-			//	DEBUG("pixel data: %x -> %x", col_old, col[val]);
-			//}
-			if((col[val] & 0x000000FF) < 0x000000F0) {
-				DEBUG("pixel data: %x", col[val]);
-			}
-			*/
 			col[val] = ((col[val] & 0xFF000000) >> 24) |
 					((col[val] & 0x00FF0000) >> 8) |
 					((col[val] & 0x0000FF00) << 8);
