@@ -17,4 +17,18 @@
 <string name="button_pwddialog_open">Open PDF...</string>
 <string name="button_pwddialog_cancel">Cancel</string>
 <string name="error_wrong_password">The password you have given is incorrect!</string>
+
+<string name="menu_zoom">Zoom</string>
+<string name="menu_rotation">Rotate</string>
+<string name="menu_zoom_in">Zoom in...</string>
+<string name="menu_zoom_out">Zoom out...</string>
+<string name="menu_zoom_fit">Fit to page</string>
+<string name="menu_zoom_fitw">Fit to page width</string>
+<string name="menu_zoom_fith">Fit to page height</string>
+<string name="menu_zoom_orig">Reset to 100%</string>
+<string name="menu_rotation_left">Rotate 90° left</string>
+<string name="menu_rotation_right">Rotate 90° right</string>
+<string name="menu_file">File</string>
+<string name="menu_file_open">Open PDF</string>
+<string name="menu_file_quit">Quit DroidReader</string>
 </resources>

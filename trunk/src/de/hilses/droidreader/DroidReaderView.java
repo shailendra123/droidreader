@@ -673,17 +673,13 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					// no page/document loaded
 					Log.d(TAG, "no page loaded.");
 					c.drawRect(0, 0, c.getWidth(), c.getHeight(), mNoPagePaint);
-					c.drawText(mContext.getString(R.string.status_no_document),
-							c.getClipBounds().left,
-							c.getClipBounds().bottom - mStatusPaint.getFontSpacing(),
-							mStatusPaint);
 				} else if(mPixmapIsCurrent) {
 					// we have both page and Pixmap, so draw:
 					Log.d(TAG, "rendering Pixmap at (" + (-mOffsetX + mActiveViewPort.left) + "," +
 							(-mOffsetY + mActiveViewPort.top) + ")");
+					// background:
+					c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
 					synchronized(mActivePixmap) {
-						// background:
-						c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
 						// pixmap:
 						c.drawBitmap(
 								mActivePixmap.buf,
@@ -700,10 +696,6 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					// page loaded, but no Pixmap yet
 					Log.d(TAG, "page loaded, but no active Pixmap.");
 					c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
-					c.drawText(mContext.getString(R.string.status_page_rendering),
-							c.getClipBounds().left,
-							c.getClipBounds().bottom - mStatusPaint.getFontSpacing(),
-							mStatusPaint);
 				}
 			} finally {
 				if (c != null) {
@@ -791,6 +783,8 @@ implements OnGestureListener, SurfaceHolder.Callback {
 				Log.d(TAG, "onOpenPage event triggered...");
 				try {
 					PdfPage page = doc.openPage(pageno);
+					float zoomCalc = zoom;
+					float zoomW = 1F, zoomH = 1F;
 					
 					mActiveViewPort = new Rect(0, 0, 0, 0);
 					
@@ -798,7 +792,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					RectF mediaBox = page.getMediaBox();
 					// matrix to apply to the mediaBox in order to calculate
 					// the page size in pixels
-					Matrix pageSizeMatrix = new Matrix();
+					//Matrix pageSizeMatrix = new Matrix();
 					
 					// create Matrix for _rendering_ the PDF
 					mPageMatrix = new Matrix();
@@ -812,21 +806,48 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					mPageMatrix.postRotate(page.rotate + rotation);
 					switch((page.rotate + rotation) % 360) {
 					case 270:
+						zoomW = mSurfaceHolder.getSurfaceFrame().width() * 72 / mediaBox.height() / dpiX;
+						zoomH = mSurfaceHolder.getSurfaceFrame().height() * 72 / mediaBox.width() / dpiY;
 						mPageMatrix.postTranslate(0, mediaBox.width());
 						break;
 					case 180:
+						zoomW = mSurfaceHolder.getSurfaceFrame().width() * 72 / mediaBox.width() / dpiX;
+						zoomH = mSurfaceHolder.getSurfaceFrame().height() * 72 / mediaBox.height() / dpiY;
 						mPageMatrix.postTranslate(mediaBox.width(), mediaBox.height());
 						break;
 					case 90:
+						zoomW = mSurfaceHolder.getSurfaceFrame().width() * 72 / mediaBox.height() / dpiX;
+						zoomH = mSurfaceHolder.getSurfaceFrame().height() * 72 / mediaBox.width() / dpiY;
 						mPageMatrix.postTranslate(mediaBox.height(), 0);
+						break;
+					case 0:
+						zoomW = mSurfaceHolder.getSurfaceFrame().width() * 72 / mediaBox.width() / dpiX;
+						zoomH = mSurfaceHolder.getSurfaceFrame().height() * 72 / mediaBox.height() / dpiY;
 					}
-					mPageMatrix.postScale((float) zoom * dpiX / 72, (float) zoom * dpiY / 72);
+					
+					switch((int)zoomCalc) {
+					case DroidReaderView.ZOOM_FIT:
+						if(zoomW < zoomH)
+							zoomCalc = zoomW;
+						else
+							zoomCalc = zoomH;
+						break;
+					case DroidReaderView.ZOOM_FIT_WIDTH:
+						zoomCalc = zoomW;
+						break;
+					case DroidReaderView.ZOOM_FIT_HEIGHT:
+						zoomCalc = zoomH;
+					}
+
+					
+					mPageMatrix.postScale((float) zoomCalc * dpiX / 72, (float) zoomCalc * dpiY / 72);
 					
 					// similar for the calculation of the resulting page size in
 					// pixels, but we can ignore the different coordinate systems
 					// (but not the zoom factor/rotation)
-					pageSizeMatrix.postScale((float) zoom * dpiX / 72, (float) zoom * dpiY / 72);
-					pageSizeMatrix.mapRect(mediaBox);
+					//pageSizeMatrix.postScale((float) zoomCalc * dpiX / 72, (float) zoomCalc * dpiY / 72);
+					//pageSizeMatrix.mapRect(mediaBox);
+					mPageMatrix.mapRect(mediaBox);
 					// sets mPageSize:
 					mediaBox.round(mPageSize);
 					
@@ -884,6 +905,21 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	 * Debug helper
 	 */
 	protected final static String TAG = "DroidReaderView";
+
+	/**
+	 * Constant: Zoom to fit page
+	 */
+	protected static final int ZOOM_FIT = -1;
+
+	/**
+	 * Constant: Zoom to fit page width
+	 */
+	protected static final int ZOOM_FIT_WIDTH = -2;
+
+	/**
+	 * Constant: Zoom to fit page height
+	 */
+	protected static final int ZOOM_FIT_HEIGHT = -3;
 
 	/**
 	 * our view thread which does the drawing

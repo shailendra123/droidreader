@@ -1,8 +1,24 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-<item android:id="@+id/page_prev" android:title="Prev. Page" android:titleCondensed="&lt;"></item>
-<item android:id="@+id/page_next" android:title="Next Page" android:titleCondensed="&gt;"></item>
-<item android:id="@+id/quit" android:title="Quit" android:titleCondensed="X"></item>
-<item android:id="@+id/zoom_in" android:titleCondensed="+" android:title="Zoom In"></item>
-<item android:id="@+id/zoom_out" android:titleCondensed="-" android:title="Zoom Out"></item>
-<item android:titleCondensed="Open" android:id="@+id/open_file" android:title="Open PDF File"></item>
+<item android:id="@+id/submenu_zoom" android:title="@string/menu_zoom">
+	<menu>
+		<item android:id="@+id/zoom_in" android:title="@string/menu_zoom_in"/>
+		<item android:id="@+id/zoom_out" android:title="@string/menu_zoom_out"/>
+		<item android:id="@+id/zoom_fit" android:title="@string/menu_zoom_fit"/>
+		<item android:id="@+id/zoom_fitw" android:title="@string/menu_zoom_fitw"/>
+		<item android:id="@+id/zoom_fith" android:title="@string/menu_zoom_fith"/>
+		<item android:id="@+id/zoom_orig" android:title="@string/menu_zoom_orig"/>
+	</menu>
+</item>
+<item android:id="@+id/submenu_rotation" android:title="@string/menu_rotation">
+	<menu>
+		<item android:id="@+id/rotation_left" android:title="@string/menu_rotation_left"/>
+		<item android:id="@+id/rotation_right" android:title="@string/menu_rotation_right"/>
+	</menu>
+</item>
+<item android:id="@+id/submenu_file" android:title="@string/menu_file">
+	<menu>
+		<item android:id="@+id/open_file" android:title="@string/menu_file_open"/>
+		<item android:id="@+id/quit" android:title="@string/menu_file_quit"/>
+	</menu>
+</item>
 </menu>

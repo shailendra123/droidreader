@@ -34,15 +34,18 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import android.util.DisplayMetrics;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.View.OnClickListener;
 
 public class DroidReaderActivity extends Activity {
 	private static final int REQUEST_CODE_PICK_FILE = 1;
@@ -59,6 +62,10 @@ public class DroidReaderActivity extends Activity {
 	protected int mDpiY = 160;
 	protected int mTileMaxX = 512;
 	protected int mTileMaxY = 512;
+	
+	private Button mButtonPrev = null;
+	private Button mButtonNext = null;
+	
 	private String mFilename;
 	
 	/** Called when the activity is first created. */
@@ -74,6 +81,23 @@ public class DroidReaderActivity extends Activity {
 		FrameLayout fl = new FrameLayout(this);
 
 		mReaderView = new DroidReaderView(this, null, mTileMaxX, mTileMaxY);
+		
+		View navigationOverlay = getLayoutInflater().inflate(R.layout.navigationoverlay,
+				(ViewGroup) findViewById(R.id.navigationlayout));
+		
+		mButtonPrev = (Button) navigationOverlay.findViewById(R.id.button_prev);
+		mButtonNext = (Button) navigationOverlay.findViewById(R.id.button_next);
+		
+		mButtonPrev.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				DroidReaderActivity.this.gotoPrevPage();
+			}
+		});
+		mButtonNext.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				DroidReaderActivity.this.gotoNextPage();
+			}
+		});
 
 		// read the display's DPI
 		DisplayMetrics metrics = new DisplayMetrics();
@@ -82,7 +106,16 @@ public class DroidReaderActivity extends Activity {
 		mDpiY = (int) metrics.ydpi;
 
 		fl.addView(mReaderView);
+		fl.addView(navigationOverlay, new FrameLayout.LayoutParams(
+				ViewGroup.LayoutParams.FILL_PARENT,
+				ViewGroup.LayoutParams.WRAP_CONTENT,
+				Gravity.BOTTOM));
 		setContentView(fl);
+		
+		mButtonPrev.setClickable(false);
+		mButtonNext.setClickable(false);
+		mButtonPrev.setVisibility(View.INVISIBLE);
+		mButtonNext.setVisibility(View.INVISIBLE);
 		
 		// check if we were called in order to open a PDF:
 		Intent intent = getIntent();
@@ -110,7 +143,51 @@ public class DroidReaderActivity extends Activity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
+		case R.id.zoom_in:
+			mZoom*=1.5;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.zoom_out:
+			mZoom*=.66;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.zoom_fit:
+			mZoom = DroidReaderView.ZOOM_FIT;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.zoom_fitw:
+			mZoom = DroidReaderView.ZOOM_FIT_WIDTH;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.zoom_fith:
+			mZoom = DroidReaderView.ZOOM_FIT_HEIGHT;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.zoom_orig:
+			mZoom = 1.0F;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.rotation_left:
+			mRotate += 270;
+			mRotate %= 360;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
+		case R.id.rotation_right:
+			mRotate += 90;
+			mRotate %= 360;
+			mReaderView.openPage(mDocument, mPageNo,
+					mZoom, mRotate, mDpiX, mDpiY);
+			return true;
 		case R.id.open_file:
+			mButtonPrev.setClickable(false);
+			mButtonNext.setClickable(false);
 			mReaderView.closeDoc();
 			Intent intent = new Intent(FileManagerIntents.ACTION_PICK_FILE);
 			intent.setData(Uri.parse("file://"));
@@ -122,32 +199,51 @@ public class DroidReaderActivity extends Activity {
 						Toast.LENGTH_SHORT).show();
 			}
 			return true;
-		case R.id.page_next:
-			if(mPageNo < mDocument.pagecount) {
-				mPageNo++;
-				mReaderView.openPage(mDocument, mPageNo,
-						mZoom, mRotate, mDpiX, mDpiY);
-			}
-			return true;
-		case R.id.page_prev:
-			if(mPageNo > 1) {
-				mPageNo--;
-				mReaderView.openPage(mDocument, mPageNo,
-						mZoom, mRotate, mDpiX, mDpiY);
-			}
-			return true;
-		case R.id.zoom_in:
-			mZoom*=2.25;
-		case R.id.zoom_out:
-			mZoom*=.66;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
-			return true;
 		case R.id.quit:
 			finish();
 			return true;
 		}
 		return false;
+	}
+	
+	protected void gotoPrevPage() {
+		try {
+			if(1 < mPageNo) {
+				mPageNo--;
+				if(1 == mPageNo) {
+					mButtonPrev.setClickable(false);
+					mButtonPrev.setVisibility(View.INVISIBLE);
+				}
+				if(mDocument.pagecount > mPageNo) {
+					mButtonNext.setClickable(true);
+					mButtonNext.setVisibility(View.VISIBLE);
+				}
+				mReaderView.openPage(mDocument, mPageNo,
+						mZoom, mRotate, mDpiX, mDpiY);
+			}
+		} catch(NullPointerException e) {
+			// no mDocument yet?
+		}
+	}
+
+	protected void gotoNextPage() {
+		try {
+			if(mDocument.pagecount > mPageNo) {
+				mPageNo++;
+				if(mDocument.pagecount == mPageNo) {
+					mButtonNext.setClickable(false);
+					mButtonNext.setVisibility(View.INVISIBLE);
+				}
+				if(1 < mPageNo) {
+					mButtonPrev.setClickable(true);
+					mButtonPrev.setVisibility(View.VISIBLE);
+				}
+				mReaderView.openPage(mDocument, mPageNo,
+						mZoom, mRotate, mDpiX, mDpiY);
+			}
+		} catch(NullPointerException e) {
+			// no mDocument yet?
+		}
 	}
 	
 	@Override
@@ -170,11 +266,19 @@ public class DroidReaderActivity extends Activity {
 	
 	protected void openDocument(String password) {
 		mPageNo = 1;
+		mButtonPrev.setClickable(false);
+		mButtonNext.setClickable(false);
+		mButtonPrev.setVisibility(View.INVISIBLE);
+		mButtonNext.setVisibility(View.INVISIBLE);
 		try {
 			try {
 				mDocument = new PdfDocument(mFilename, password);
 				mReaderView.openPage(mDocument, mPageNo,
 						mZoom, mRotate, mDpiX, mDpiY);
+				if(mDocument.pagecount > 1) {
+					mButtonNext.setClickable(true);
+					mButtonNext.setVisibility(View.VISIBLE);
+				}
 			} catch (PasswordNeededException e) {
 				showDialog(DIALOG_GET_PASSWORD);
 			} catch(WrongPasswordException e) {
