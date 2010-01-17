@@ -39,9 +39,9 @@ the Free Software Foundation, either version 3 of the License, or
 
 /* Debugging helper */
 
-//#define DEBUG(args...) \
-//	__android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
-#define DEBUG(args...) {}
+#define DEBUG(args...) \
+	__android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
+//#define DEBUG(args...) {}
 #define ERROR(args...) \
 	__android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
 #define INFO(args...) \
@@ -74,12 +74,6 @@ struct renderpage_s
 	pdf_page *page;
 	fz_matrix ctm;
 	fz_rect bbox;
-};
-
-typedef struct renderview_s renderview_t;
-struct renderview_s
-{
-	fz_pixmap *image;
 };
 
 /************************************************************************/
@@ -332,31 +326,24 @@ JNIEXPORT long JNICALL
 	return (jlong) page;
 }
 
-JNIEXPORT jlong JNICALL
+JNIEXPORT void JNICALL
 	Java_de_hilses_droidreader_PdfView_nativeCreateView
 	(JNIEnv *env, jobject this, jlong dochandle, jlong pagehandle,
-		jintArray viewboxarray, jfloatArray matrixarray)
+		jintArray viewboxarray, jfloatArray matrixarray,
+		jintArray bufferarray)
 {
 	renderdocument_t *doc = (renderdocument_t*) dochandle;
 	renderpage_t *page = (renderpage_t*) pagehandle;
 	DEBUG("PdfView(%p).nativeCreateView(%p, %p)", this, doc, page);
-	renderview_t *view;
 	fz_error error;
 	fz_matrix ctm;
 	fz_irect viewbox;
-	jfloat* matrix;
-	jint* viewboxarr;
-	jint* dimen;
-	jclass cls;
-	jfieldID fid;
-	jobject bb;
+	fz_pixmap *pixmap;
+	jfloat *matrix;
+	jint *viewboxarr;
+	jint *dimen;
+	jint *buffer;
 	int length, val;
-
-	view = fz_malloc(sizeof(renderview_t));
-	if(!view) {
-		throw_exception(env, EXC, "Out of Memory");
-		return (jlong) NULL;
-	}
 
 	/* initialize parameter arrays for MuPDF */
 
@@ -382,62 +369,55 @@ JNIEXPORT jlong JNICALL
 
 	/* do the rendering */
 	DEBUG("doing the rendering...");
-	error = fz_rendertree(&view->image, doc->rast,
-			page->page->tree, ctm,
-			viewbox, 1);
-	if (error) {
-		DEBUG("error!");
-		throw_exception(env, EXC_PAGERENDER, "error rendering page");
-		return (jlong) view;
-	}
+	buffer = (*env)->GetPrimitiveArrayCritical(env, bufferarray, 0);
 
-	/* evil magic: we transform the rendered image from ARGB to RGBA,
-	 * since MuPDF uses the former and we want the latter
-	 * (don't let you being irritated by the Android naming scheme,
-	 * which calls RGBA ARGB8888!)
+	error = fz_newpixmapwithbufferandrect(&pixmap, (void*)buffer, viewbox, 4);
+	if(!error)
+		error = fz_rendertreetopixmap(&pixmap, doc->rast,
+				page->page->tree, ctm,
+				viewbox, 1);
+
+	/* evil magic: we transform the rendered image's byte order
 	 */
-
-	DEBUG("Converting image buffer pixel order");
-	length = view->image->w * view->image->h;
-	unsigned int *col = view->image->samples;
-	for(val = 0; val < length; val++) {
-		/* unsigned int c = col[val]; */
-		col[val] = (col[val] >> 8) | (col[val] << 24);
-	}
-
-	/* now, let the JVM know that we like to have it handle our
-	 * pixel store as a ByteBuffer and set the instance variable
-	 * "buf" to that new Object
-	 */
-
-	DEBUG("Let the JVM handle it as a ByteBuffer");
-	bb = (*env)->NewDirectByteBuffer(env,
-			(void *) view->image->samples, length * 4);
-	if(bb) {
-		cls = (*env)->GetObjectClass(env, this);
-		fid = (*env)->GetFieldID(env, cls, "buf","Ljava/nio/ByteBuffer;");
-		if(fid) {
-			(*env)->SetObjectField(env, this, fid, bb);
+	if(!error) {
+		DEBUG("Converting image buffer pixel order");
+		length = pixmap->w * pixmap->h;
+		unsigned int *col = pixmap->samples;
+		int c = 0;
+		for(val = 0; val < length; val++) {
+			/*
+			if(val < 10000) {
+				col[val] = 0xFF000000;
+			} else if(val < 20000) {
+				col[val] = 0x00FF0000;
+			} else if(val < 30000) {
+				col[val] = 0x0000FF00;
+			} else if(val < 40000) {
+				col[val] = 0x000000FF;
+			}
+			//unsigned int col_old = col[val];
+			//col[val] = col[val] << 8;
+			//if(col_old != 0xFFFFFFFF && val < 40000) {
+			//	DEBUG("pixel data: %x -> %x", col_old, col[val]);
+			//}
+			if((col[val] & 0x000000FF) < 0x000000F0) {
+				DEBUG("pixel data: %x", col[val]);
+			}
+			*/
+			col[val] = ((col[val] & 0xFF000000) >> 24) |
+					((col[val] & 0x00FF0000) >> 8) |
+					((col[val] & 0x0000FF00) << 8);
 		}
 	}
 
-	DEBUG("PdfView.nativeCreateView(): return handle = %p", view);
-	return (jlong) view;
-}
+	(*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
 
-JNIEXPORT jlong JNICALL
-	Java_de_hilses_droidreader_PdfView_nativeDropView
-	(JNIEnv *env, jobject this, jlong handle)
-{
-	renderview_t *view = (renderview_t*) handle;
-	DEBUG("PdfView.nativeDropView(%p)", view);
+	fz_droppixmapwithoutbuffer(pixmap);
 
-	if(view) {
-		if(view->image)
-			fz_droppixmap(view->image);
-
-		fz_free(view);
+	if (error) {
+		DEBUG("error!");
+		throw_exception(env, EXC_PAGERENDER, "error rendering page");
 	}
-	DEBUG("PdfView.nativeDropView(): return handle = %p", view);
-	return (jlong) view;
+
+	DEBUG("PdfView.nativeCreateView() done");
 }

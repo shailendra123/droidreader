@@ -48,8 +48,8 @@ public class DroidReaderActivity extends Activity {
 	protected int mRotate = 0;
 	protected int mDpiX = 160;
 	protected int mDpiY = 160;
-	protected int mTileMaxX = 800;
-	protected int mTileMaxY = 800;
+	protected int mTileMaxX = 500;
+	protected int mTileMaxY = 512;
 	
 	/** Called when the activity is first created. */
 	@Override
