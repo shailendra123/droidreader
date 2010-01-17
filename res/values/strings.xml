@@ -31,4 +31,6 @@
 <string name="menu_file">File</string>
 <string name="menu_file_open">Open PDF</string>
 <string name="menu_file_quit">Quit DroidReader</string>
+<string name="button_ok">OK</string>
+<string name="menu_file_about">About DroidReader</string>
 </resources>
