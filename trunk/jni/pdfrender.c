@@ -234,7 +234,7 @@ cleanup:
 	return (jlong) doc;
 }
 
-JNIEXPORT jlong JNICALL
+JNIEXPORT void JNICALL
 	Java_de_hilses_droidreader_PdfDocument_nativeClose
 	(JNIEnv *env, jobject this, jlong handle)
 {
@@ -254,8 +254,6 @@ JNIEXPORT jlong JNICALL
 
 		fz_free(doc);
 	}
-	DEBUG("PdfDocument.nativeClose(): return handle = %p", doc);
-	return (jlong) doc;
 }
 
 JNIEXPORT jlong JNICALL
@@ -310,7 +308,7 @@ cleanup:
 	return (jlong) page;
 }
 
-JNIEXPORT long JNICALL
+JNIEXPORT void JNICALL
 	Java_de_hilses_droidreader_PdfPage_nativeClosePage
 	(JNIEnv *env, jobject this, jlong handle)
 {
@@ -322,8 +320,6 @@ JNIEXPORT long JNICALL
 
 		fz_free(page);
 	}
-	DEBUG("PdfPage.nativeClosePage(): return handle = %p", page);
-	return (jlong) page;
 }
 
 JNIEXPORT void JNICALL
