@@ -29,60 +29,60 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := mupdf
 
-# jpeg-7
+# jpeg
 # uses pristine source tree
 
 # Homepage: http://www.ijg.org/
-# Original Licence: see jpeg-7/README
+# Original Licence: see jpeg/README
 # Original Copyright (C) 1991-2009, Thomas G. Lane, Guido Vollbeding
 
 MY_JPEG_SRC_FILES := \
-	jpeg-7/jcapimin.c \
-	jpeg-7/jcapistd.c \
-	jpeg-7/jcarith.c \
-	jpeg-7/jctrans.c \
-	jpeg-7/jcparam.c \
-	jpeg-7/jdatadst.c \
-	jpeg-7/jcinit.c \
-	jpeg-7/jcmaster.c \
-	jpeg-7/jcmarker.c \
-	jpeg-7/jcmainct.c \
-	jpeg-7/jcprepct.c \
-	jpeg-7/jccoefct.c \
-	jpeg-7/jccolor.c \
-	jpeg-7/jcsample.c \
-	jpeg-7/jchuff.c \
-	jpeg-7/jcdctmgr.c \
-	jpeg-7/jfdctfst.c \
-	jpeg-7/jfdctflt.c \
-	jpeg-7/jfdctint.c \
-	jpeg-7/jdapimin.c \
-	jpeg-7/jdapistd.c \
-	jpeg-7/jdarith.c \
-	jpeg-7/jdtrans.c \
-	jpeg-7/jdatasrc.c \
-	jpeg-7/jdmaster.c \
-	jpeg-7/jdinput.c \
-	jpeg-7/jdmarker.c \
-	jpeg-7/jdhuff.c \
-	jpeg-7/jdmainct.c \
-	jpeg-7/jdcoefct.c \
-	jpeg-7/jdpostct.c \
-	jpeg-7/jddctmgr.c \
-	jpeg-7/jidctfst.c \
-	jpeg-7/jidctflt.c \
-	jpeg-7/jidctint.c \
-	jpeg-7/jdsample.c \
-	jpeg-7/jdcolor.c \
-	jpeg-7/jquant1.c \
-	jpeg-7/jquant2.c \
-	jpeg-7/jdmerge.c \
-	jpeg-7/jaricom.c \
-	jpeg-7/jcomapi.c \
-	jpeg-7/jutils.c \
-	jpeg-7/jerror.c \
-	jpeg-7/jmemmgr.c \
-	jpeg-7/jmemnobs.c
+	jpeg/jcapimin.c \
+	jpeg/jcapistd.c \
+	jpeg/jcarith.c \
+	jpeg/jctrans.c \
+	jpeg/jcparam.c \
+	jpeg/jdatadst.c \
+	jpeg/jcinit.c \
+	jpeg/jcmaster.c \
+	jpeg/jcmarker.c \
+	jpeg/jcmainct.c \
+	jpeg/jcprepct.c \
+	jpeg/jccoefct.c \
+	jpeg/jccolor.c \
+	jpeg/jcsample.c \
+	jpeg/jchuff.c \
+	jpeg/jcdctmgr.c \
+	jpeg/jfdctfst.c \
+	jpeg/jfdctflt.c \
+	jpeg/jfdctint.c \
+	jpeg/jdapimin.c \
+	jpeg/jdapistd.c \
+	jpeg/jdarith.c \
+	jpeg/jdtrans.c \
+	jpeg/jdatasrc.c \
+	jpeg/jdmaster.c \
+	jpeg/jdinput.c \
+	jpeg/jdmarker.c \
+	jpeg/jdhuff.c \
+	jpeg/jdmainct.c \
+	jpeg/jdcoefct.c \
+	jpeg/jdpostct.c \
+	jpeg/jddctmgr.c \
+	jpeg/jidctfst.c \
+	jpeg/jidctflt.c \
+	jpeg/jidctint.c \
+	jpeg/jdsample.c \
+	jpeg/jdcolor.c \
+	jpeg/jquant1.c \
+	jpeg/jquant2.c \
+	jpeg/jdmerge.c \
+	jpeg/jaricom.c \
+	jpeg/jcomapi.c \
+	jpeg/jutils.c \
+	jpeg/jerror.c \
+	jpeg/jmemmgr.c \
+	jpeg/jmemnobs.c
 
 # freetype
 # (flat file hierarchy, use 
@@ -158,7 +158,7 @@ MY_FREETYPE_SRC_FILES := \
 
 MY_MUPDF_C_INCLUDES := \
 	$(LOCAL_PATH)/freetype/include \
-	$(LOCAL_PATH)/jpeg-7 \
+	$(LOCAL_PATH)/jpeg \
 	$(LOCAL_PATH)/mupdf/fitzdraw \
 	$(LOCAL_PATH)/mupdf/fitz \
 	$(LOCAL_PATH)/mupdf/mupdf
