@@ -25,7 +25,6 @@ the Free Software Foundation, either version 3 of the License, or
 package de.hilses.droidreader;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -113,20 +112,19 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	 */
 	interface DroidReaderRenderListener {
 		/**
-		 * is called by the RenderThread when a new Bitmap is ready
+		 * is called by the RenderThread when a new Pixmap is ready
 		 * 
-		 * @param newBitmap is the new ready bitmap
 		 * @param theJob is the RenderJob for which the rendering was done
 		 */
-		public void onNewRenderedBitmap(RenderJob theJob);
+		public void onNewRenderedPixmap(RenderJob theJob);
 	}
 	
 	/**
-	 * renders Bitmaps for PdfPage objects and manages a LIFO queue for requests
+	 * renders Pixmaps for PdfPage objects and manages a LIFO queue for requests
 	 */
 	class DroidReaderRenderThread extends Thread {
 		/**
-		 * we notify the Listener upon a new ready rendered Bitmap
+		 * we notify the Listener upon a new ready rendered Pixmap
 		 */
 		protected final DroidReaderRenderListener mListener;
 		
@@ -146,9 +144,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		protected final static String TAG = "DroidReaderRenderThread";
 		
 		/**
-		 * the Bitmap we're rendering to
+		 * the Pixmap we're rendering to
 		 */
-		protected final Bitmap mBitmap;
+		protected final PdfView mPixmap;
 		
 		/**
 		 * Thread state keeper
@@ -162,12 +160,12 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		
 		/**
 		 * constructs a new render thread
-		 * @param object listening for ready bitmaps (implementing the right interface)
+		 * @param object listening for ready Pixmaps (implementing the right interface)
 		 */
 		public DroidReaderRenderThread(DroidReaderRenderListener listener,
-				Bitmap bitmap, PdfPage page) {
+				PdfView pixmap, PdfPage page) {
 			mListener = listener;
-			mBitmap = bitmap;
+			mPixmap = pixmap;
 			mPage = page;
 			mRun = true;
 		}
@@ -240,24 +238,14 @@ implements OnGestureListener, SurfaceHolder.Callback {
 									Log.d(TAG, "locked the page object");
 									// do the rendering, consumes some seconds
 									// of precious CPU time...
-									PdfView view = new PdfView(
-											mPage,
-											mCurrentRenderJob.mViewPort,
-											mCurrentRenderJob.mMatrix);
-									try {
-										Log.d(TAG, "now blitting to the bitmap");
-										synchronized(mBitmap) {
-											Log.d(TAG, "locked on the bitmap");
-											// copy pixels
-											mBitmap.copyPixelsFromBuffer(view.buf);
-											// and then trigger the listener and hand
-											// it the Bitmap:
-											Log.d(TAG, "now triggering the view thread");
-											mListener.onNewRenderedBitmap(
-													mCurrentRenderJob);
-										}
-									} finally {
-										view.done();
+									synchronized(mPixmap) {
+										mPixmap.render(
+												mPage,
+												mCurrentRenderJob.mViewPort,
+												mCurrentRenderJob.mMatrix);
+										Log.d(TAG, "now triggering the view thread");
+										mListener.onNewRenderedPixmap(
+												mCurrentRenderJob);
 									}
 								}
 							} catch(NullPointerException e) {
@@ -323,7 +311,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	}
 
 	/**
-	 * Thread that cares for blitting Bitmaps onto the Canvas and handles scrolling
+	 * Thread that cares for blitting Pixmaps onto the Canvas and handles scrolling
 	 */
 	class DroidReaderViewThread extends Thread
 	implements DroidReaderRenderListener {
@@ -336,9 +324,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		 */
 		protected final SurfaceHolder mSurfaceHolder;
 		/**
-		 * the Bitmap we work with
+		 * the Pixmap we work with
 		 */
-		protected Bitmap mActiveBitmap = null;
+		protected final PdfView mActivePixmap;
 		/**
 		 * The ViewPort that we cover. This fits into the page size.
 		 */
@@ -380,10 +368,10 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		 */
 		protected boolean mPositionDirty = false;
 		/**
-		 * Trigger for the case that we should check whether the bitmap
+		 * Trigger for the case that we should check whether the Pixmap
 		 * should be re-rendered.
 		 */
-		protected boolean mBitmapDirty = false;
+		protected boolean mPixmapDirty = false;
 		/**
 		 * Trigger for running the actual painting  to the surface
 		 */
@@ -393,9 +381,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		 */
 		protected boolean mPageLoaded = false;
 		/**
-		 * Flag that our Bitmap is current
+		 * Flag that our Pixmap is current
 		 */
-		protected boolean mBitmapIsCurrent = false;
+		protected boolean mPixmapIsCurrent = false;
 		/**
 		 * Flag that our thread should be running
 		 */
@@ -448,7 +436,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 			// store a reference to our SurfaceHolder
 			mSurfaceHolder = holder;
 			
-			// initialize Paints for non-bitmap areas
+			// initialize Paints for non-Pixmap areas
 			mEmptyPaint = new Paint();
 			mEmptyPaint.setStyle(Paint.Style.FILL);
 			mEmptyPaint.setColor(0xffc0c0c0); // light gray
@@ -464,11 +452,10 @@ implements OnGestureListener, SurfaceHolder.Callback {
 			// positions for scrolling/jumping/flinging
 			mScroller = new Scroller(context);
 			
-			// set up our Bitmap:
+			// set up our Pixmap:
 			mTileMaxX = tileMaxX;
 			mTileMaxY = tileMaxY;
-			mActiveBitmap = Bitmap.createBitmap(
-					mTileMaxX, mTileMaxY, Bitmap.Config.ARGB_8888);
+			mActivePixmap = new PdfView();
 			mActiveViewPort = new Rect(0, 0, 0, 0);
 		}
 		
@@ -488,7 +475,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 						resetScrollableViewPort();
 						clampOffsets();
 						mFrameDirty = false;
-						mBitmapDirty = true;
+						mPixmapDirty = true;
 						mRedraw = true;
 					}
 					if(mPositionDirty) {
@@ -507,20 +494,20 @@ implements OnGestureListener, SurfaceHolder.Callback {
 						}
 						clampOffsets();
 						Log.d(TAG, "scrolled to (" + mOffsetX + "," + mOffsetY + ")");
-						// if we moved, the Bitmap might be dirty
-						mBitmapDirty = true;
+						// if we moved, the Pixmap might be dirty
+						mPixmapDirty = true;
 						mRedraw = true;
 					}
-					if(mBitmapDirty) {
-						Log.d(TAG, "bitmap is dirty");
+					if(mPixmapDirty) {
+						Log.d(TAG, "Pixmap is dirty");
 						long sleepTime = mLazyRender;
-						// if we don't have a current bitmap, render
+						// if we don't have a current Pixmap, render
 						// one ASAP:
-						if(!mBitmapIsCurrent)
+						if(!mPixmapIsCurrent)
 							sleepTime = 0;
-						// check if we need a new Bitmap, and if yes,
+						// check if we need a new Pixmap, and if yes,
 						// enqueue a new RenderJob
-						if(mPageLoaded && checkForDirtyBitmap()) {
+						if(mPageLoaded && checkForDirtyPixmap()) {
 							try {
 								mRenderThread.newRenderJob(
 										calcCenteredViewPort(),
@@ -529,10 +516,10 @@ implements OnGestureListener, SurfaceHolder.Callback {
 								Log.e(TAG, "no RenderThread we could use!");
 							}
 						}
-						mBitmapDirty = false;
+						mPixmapDirty = false;
 						// note that there is no real reason to redraw for
 						// _this_ trigger, since we will update if and when
-						// we are triggered for a new ready bitmap by the
+						// we are triggered for a new ready Pixmap by the
 						// rendering Thread
 					}
 					if(mRedraw) {
@@ -589,12 +576,12 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		}
 		
 		/**
-		 * this checks whether our bitmap is "dirty", i.e. needs to be
+		 * this checks whether our Pixmap is "dirty", i.e. needs to be
 		 * re-rendered
 		 * @return true if we need to re-render, false otherwise
 		 */
-		protected boolean checkForDirtyBitmap() {
-			if(!mBitmapIsCurrent)
+		protected boolean checkForDirtyPixmap() {
+			if(!mPixmapIsCurrent)
 				return true;
 			
 			return !mActiveViewPort.contains(getInnerViewPort());
@@ -616,7 +603,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		}
 		
 		/**
-		 * This calculates a view port (for rendering a bitmap from it)
+		 * This calculates a view port (for rendering a Pixmap from it)
 		 * which tries to fit the current display (identified by it's
 		 * upper left coordinates) centered into the new rendered view.
 		 * it takes the page size into account and will always fit into
@@ -686,18 +673,26 @@ implements OnGestureListener, SurfaceHolder.Callback {
 							c.getClipBounds().left,
 							c.getClipBounds().bottom - mStatusPaint.getFontSpacing(),
 							mStatusPaint);
-				} else if(mBitmapIsCurrent) {
-					// we have both page and bitmap, so draw:
-					Log.d(TAG, "rendering bitmap at (" + (-mOffsetX + mActiveViewPort.left) + "," +
+				} else if(mPixmapIsCurrent) {
+					// we have both page and Pixmap, so draw:
+					Log.d(TAG, "rendering Pixmap at (" + (-mOffsetX + mActiveViewPort.left) + "," +
 							(-mOffsetY + mActiveViewPort.top) + ")");
-					synchronized(mActiveBitmap) {
+					synchronized(mActivePixmap) {
 						c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
-						c.drawBitmap(mActiveBitmap, -mOffsetX + mActiveViewPort.left,
-								-mOffsetY + mActiveViewPort.top, null);
+						c.drawBitmap(
+								mActivePixmap.buf,
+								0,
+								mActiveViewPort.width(),
+								-mOffsetX + mActiveViewPort.left,
+								-mOffsetY + mActiveViewPort.top,
+								mActiveViewPort.width(),
+								mActiveViewPort.height(),
+								false,
+								null);
 					}
 				} else {
-					// page loaded, but no bitmap yet
-					Log.d(TAG, "page loaded, but no active bitmap.");
+					// page loaded, but no Pixmap yet
+					Log.d(TAG, "page loaded, but no active Pixmap.");
 					c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
 					c.drawText(mContext.getString(R.string.status_page_rendering),
 							c.getClipBounds().left,
@@ -712,14 +707,14 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		}
 		
 		/**
-		 * triggered by our RenderThread when a new bitmap is ready
+		 * triggered by our RenderThread when a new Pixmap is ready
 		 */
 		@Override
-		public void onNewRenderedBitmap(RenderJob theJob) {
+		public void onNewRenderedPixmap(RenderJob theJob) {
 			synchronized(mSurfaceHolder) {
-				Log.d(TAG, "got a new Bitmap, viewPort: "+theJob.mViewPort.toShortString());
+				Log.d(TAG, "got a new Pixmap, viewPort: "+theJob.mViewPort.toShortString());
 				mActiveViewPort = theJob.mViewPort;
-				mBitmapIsCurrent = true;
+				mPixmapIsCurrent = true;
 				mRedraw = true;
 				interrupt();
 			}
@@ -824,7 +819,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 				
 				// finally, start the thread that will render for us:
 				Log.d(TAG, "starting a new RenderThread...");
-				mRenderThread = new DroidReaderRenderThread(this, mActiveBitmap, page);
+				mRenderThread = new DroidReaderRenderThread(this, mActivePixmap, page);
 				mRenderThread.start();
 				mPageLoaded = true;
 				
@@ -853,7 +848,7 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					// there wasn't any thread running
 				}
 				
-				mBitmapIsCurrent = false;
+				mPixmapIsCurrent = false;
 				mPageLoaded = false;
 				
 				// set page size to zero

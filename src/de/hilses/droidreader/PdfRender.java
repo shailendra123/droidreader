@@ -30,7 +30,6 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 
 import java.lang.String;
-import java.nio.ByteBuffer;
 
 /**
  * Class that just loads the JNI lib and holds some basic configuration
@@ -111,36 +110,6 @@ class PdfPage {
 		this.done();
 	}
 	
-	public Bitmap createBitmap(Rect viewbox) {
-		Matrix matrix = new Matrix();
-		matrix.setRectToRect(this.getMediaBox(), new RectF(viewbox), Matrix.ScaleToFit.CENTER);
-		matrix.postScale(1, -1);
-		matrix.postTranslate(0, viewbox.bottom);
-		/* TODO: take rotation into account! */
-		return this.createBitmap(viewbox, matrix);
-	}
-
-	public Bitmap createBitmap(Rect viewbox, Matrix matrix) {
-		Bitmap bm = Bitmap.createBitmap(viewbox.width(),
-				viewbox.height(), Bitmap.Config.ARGB_8888);
-		PdfView view = new PdfView(this, viewbox, matrix);
-		try {
-			bm.copyPixelsFromBuffer(view.buf);
-		} finally {
-			view.done();
-		}
-		return bm;
-	}
-	
-	public void copyBitmapTo(Bitmap bm, Rect viewbox, Matrix matrix) {
-		PdfView view = new PdfView(this, viewbox, matrix);
-		try {
-			bm.copyPixelsFromBuffer(view.buf);
-		} finally {
-			view.done();
-		}
-	}
-	
 	public RectF getMediaBox() {
 		return new RectF(mMediabox[0], mMediabox[1], mMediabox[2], mMediabox[3]);
 	}
@@ -162,33 +131,27 @@ class PdfPage {
 	}
 }
 
-/* TODO: rewrite so that it renders to a pre-allocated buffer in order
- * to reduce re-instantiation and ease GC (really needed?)
- */
 class PdfView {
 	protected long mHandle = 0;
-	ByteBuffer buf;
+	int[] buf;
 
-	private native long nativeCreateView(
+	private native void nativeCreateView(
 			long dochandle, long pagehandle,
-			int[] viewbox, float[] matrix);
+			int[] viewbox, float[] matrix, int[] buffer);
 
-	PdfView(PdfPage page, Rect viewbox, Matrix matrix) {
-		mHandle = this.nativeCreateView(
+	void render(PdfPage page, Rect viewbox, Matrix matrix) {
+		int size = viewbox.width() * viewbox.height()
+				* ((PdfRender.bytesPerPixel * 8) / 32);
+		if((buf == null) || (buf.length != size))
+			buf = new int[size];
+		this.nativeCreateView(
 				page.mDoc.mHandle, page.mHandle,
-				PdfPage.getBox(viewbox), PdfPage.getMatrix(matrix));
-	}
-
-	private native long nativeDropView(long viewhandle);
-	
-	void done() {
-		if(mHandle != 0) {
-			mHandle = this.nativeDropView(mHandle);
-			mHandle = 0;
-		}
+				PdfPage.getBox(viewbox), PdfPage.getMatrix(matrix), buf);
 	}
 	
-	public void finalize() {
-		this.done();
+	boolean hasData() {
+		if(mHandle != 0)
+			return true;
+		return false;
 	}
 }
