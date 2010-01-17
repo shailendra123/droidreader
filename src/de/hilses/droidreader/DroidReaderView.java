@@ -799,7 +799,6 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					// matrix to apply to the mediaBox in order to calculate
 					// the page size in pixels
 					Matrix pageSizeMatrix = new Matrix();
-				
 					
 					// create Matrix for _rendering_ the PDF
 					mPageMatrix = new Matrix();
@@ -808,10 +807,21 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					// so the coordinate system is basically mirrored on the x axis
 					// hence we scale the y dimension by -1
 					// and since we mirrored, we must move everything upwards
-					mPageMatrix.postTranslate(0, -(mediaBox.bottom - mediaBox.top));
-					mPageMatrix.postScale((float) zoom * dpiX / 72, -(float) zoom * dpiY / 72);
-					/* TODO: implement rotation */
-				
+					mPageMatrix.postScale(1, -1);
+					mPageMatrix.postTranslate(-mediaBox.left, mediaBox.bottom);
+					mPageMatrix.postRotate(page.rotate + rotation);
+					switch((page.rotate + rotation) % 360) {
+					case 270:
+						mPageMatrix.postTranslate(0, mediaBox.width());
+						break;
+					case 180:
+						mPageMatrix.postTranslate(mediaBox.width(), mediaBox.height());
+						break;
+					case 90:
+						mPageMatrix.postTranslate(mediaBox.height(), 0);
+					}
+					mPageMatrix.postScale((float) zoom * dpiX / 72, (float) zoom * dpiY / 72);
+					
 					// similar for the calculation of the resulting page size in
 					// pixels, but we can ignore the different coordinate systems
 					// (but not the zoom factor/rotation)
