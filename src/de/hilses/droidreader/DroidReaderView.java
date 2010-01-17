@@ -244,9 +244,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 												mCurrentRenderJob.mViewPort,
 												mCurrentRenderJob.mMatrix);
 										Log.d(TAG, "now triggering the view thread");
-										mListener.onNewRenderedPixmap(
-												mCurrentRenderJob);
 									}
+									mListener.onNewRenderedPixmap(
+											mCurrentRenderJob);
 								}
 							} catch(NullPointerException e) {
 								Log.e(TAG, "PdfPage field became invalid!");
