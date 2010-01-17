@@ -164,10 +164,10 @@ MY_MUPDF_C_INCLUDES := \
 	$(LOCAL_PATH)/mupdf/mupdf \
 	$(LOCAL_PATH)
 
+# use this to build w/o a CJK font built-in:
 #MY_MUPDF_CFLAGS := -Drestrict= -DNOCJK
-
-# use this to build w/ a CJK font built-in
-# ATM, the irony is that it compiles in a bit-wise copy
+# but see caveat below, unexpected breakage may occur.
+# ATM, the irony is that CJK compiles in a bit-wise copy
 # of Androids own droid.ttf ... Maybe resort to pointing
 # to it in the filesystem? But this would violate proper
 # API use. Bleh.
@@ -276,8 +276,11 @@ MY_MUPDF_SRC_FILES := \
 	cmaps/cmap_japan.c \
 	cmaps/cmap_gb.c
 
-# omitted when building w/o CJK support:
+# omit this when building w/o CJK support:
 #	fonts/font_cjk.c
+# but note that this also breaks some CMaps, giving
+# unexpected results even with files that have all fonts
+# embedded and are just assuming that external CMaps are present
 
 # uses libz, which is officially supported for NDK API
 MY_MUPDF_LDLIBS := -lz

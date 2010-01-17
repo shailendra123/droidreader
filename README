@@ -73,9 +73,12 @@ When you have done this, do the following:
 
 - copy or symlink the libjpeg sources to the
 
-  jni/jpeg-7/
+  jni/jpeg/
 
   folder.
+  Within that folder, make a copy of "jconfig.txt" with the
+  name "jconfig.h". The NDK-based build run will otherwise
+  complain on the missing "jconfig.h".
 
 - copy or symlink the freetype2 sources into the
 

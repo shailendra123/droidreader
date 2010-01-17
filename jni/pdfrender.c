@@ -39,13 +39,15 @@ the Free Software Foundation, either version 3 of the License, or
 
 /* Debugging helper */
 
-#define DEBUG(args...) \
+//#define DEBUG(args...) \
 	__android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
-//#define DEBUG(args...) {}
+#define DEBUG(args...) {}
 #define ERROR(args...) \
 	__android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
-#define INFO(args...) \
+//#define INFO(args...) \
 	__android_log_print(ANDROID_LOG_INFO, "PdfRender", args)
+#define INFO(args...) {}
+
 
 /* Exception classes */
 
