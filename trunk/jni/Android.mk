@@ -163,14 +163,14 @@ MY_MUPDF_C_INCLUDES := \
 	$(LOCAL_PATH)/mupdf/fitz \
 	$(LOCAL_PATH)/mupdf/mupdf
 
-MY_MUPDF_CFLAGS := -Drestrict= -DNOCJK
+#MY_MUPDF_CFLAGS := -Drestrict= -DNOCJK
 
 # use this to build w/ a CJK font built-in
 # ATM, the irony is that it compiles in a bit-wise copy
 # of Androids own droid.ttf ... Maybe resort to pointing
 # to it in the filesystem? But this would violate proper
 # API use. Bleh.
-#LOCAL_CFLAGS := -Drestrict=
+MY_MUPDF_CFLAGS := -Drestrict=
 
 MY_MUPDF_SRC_FILES := \
 	mupdf/mupdf/pdf_crypt.c \
@@ -210,7 +210,7 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/mupdf/pdf_pagetree.c \
 	mupdf/mupdf/pdf_store.c \
 	mupdf/fitzdraw/glyphcache.c \
-	mupdf/fitzdraw/pixmap.c \
+	mupdf-overlay/fitzdraw/pixmap.c \
 	mupdf/fitzdraw/porterduff.c \
 	mupdf/fitzdraw/meshdraw.c \
 	mupdf/fitzdraw/imagedraw.c \
@@ -219,7 +219,7 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/fitzdraw/pathscan.c \
 	mupdf/fitzdraw/pathfill.c \
 	mupdf/fitzdraw/pathstroke.c \
-	mupdf/fitzdraw/render.c \
+	mupdf-overlay/fitzdraw/render.c \
 	mupdf/fitzdraw/blendmodes.c \
 	mupdf/fitz/base_cpudep.c \
 	mupdf/fitz/base_error.c \
@@ -268,6 +268,7 @@ MY_MUPDF_SRC_FILES := \
 	fonts/font_serif.c \
 	fonts/font_sans.c \
 	fonts/font_misc.c \
+	fonts/font_cjk.c \
 	cmaps/cmap_cns.c \
 	cmaps/cmap_korea.c \
 	cmaps/cmap_tounicode.c \
