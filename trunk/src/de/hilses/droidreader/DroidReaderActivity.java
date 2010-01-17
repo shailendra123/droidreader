@@ -24,6 +24,10 @@ the Free Software Foundation, either version 3 of the License, or
 
 package de.hilses.droidreader;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+
 import org.openintents.intents.FileManagerIntents;
 
 import android.app.Activity;
@@ -34,6 +38,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -50,7 +55,7 @@ import android.view.View.OnClickListener;
 public class DroidReaderActivity extends Activity {
 	private static final int REQUEST_CODE_PICK_FILE = 1;
 	private static final int DIALOG_GET_PASSWORD = 1;
-	private static final String PREFS_NAME = "DroidReaderPrefs";
+	private static final int DIALOG_ABOUT = 2;
 
 	protected DroidReaderView mReaderView;
 	protected PdfDocument mDocument;
@@ -199,6 +204,9 @@ public class DroidReaderActivity extends Activity {
 						Toast.LENGTH_SHORT).show();
 			}
 			return true;
+		case R.id.about:
+			showDialog(DIALOG_ABOUT);
+			return true;
 		case R.id.quit:
 			finish();
 			return true;
@@ -319,7 +327,42 @@ public class DroidReaderActivity extends Activity {
 				});
 			AlertDialog dialog = builder.create();
 			return dialog;
+		case DIALOG_ABOUT:
+			AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(this);
+			WebView aboutWebView = new WebView(this);
+			aboutWebView.loadData(readAbout().toString(), "text/html", "UTF-8");
+			aboutBuilder.setView(aboutWebView);
+			aboutBuilder.setCancelable(false);
+			aboutBuilder.setPositiveButton(R.string.button_ok,
+					new DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int id) {
+							dialog.dismiss();
+						}
+					});
+			AlertDialog aboutDialog = aboutBuilder.create();
+			return aboutDialog;
 		}
 		return null;
+	}
+	
+	private CharSequence readAbout() {
+        BufferedReader in = null;
+        try {
+            in = new BufferedReader(new InputStreamReader(this.getAssets().open("about.html")));
+            String line;
+            StringBuilder buffer = new StringBuilder();
+            while ((line = in.readLine()) != null)
+            	buffer.append(line).append('\n');
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException e) {
+                    // We can't do anything...
+                }
+            }
+            return buffer;
+        } catch (IOException e) {
+            return "";
+        }
 	}
 }
