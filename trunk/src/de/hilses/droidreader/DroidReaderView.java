@@ -239,10 +239,14 @@ implements OnGestureListener, SurfaceHolder.Callback {
 									// do the rendering, consumes some seconds
 									// of precious CPU time...
 									synchronized(mPixmap) {
-										mPixmap.render(
+										try{
+											mPixmap.render(
 												mPage,
 												mCurrentRenderJob.mViewPort,
 												mCurrentRenderJob.mMatrix);
+										} catch(PageRenderException e) {
+											// TODO: Handle this
+										}
 										Log.d(TAG, "now triggering the view thread");
 									}
 									mListener.onNewRenderedPixmap(
@@ -678,7 +682,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 					Log.d(TAG, "rendering Pixmap at (" + (-mOffsetX + mActiveViewPort.left) + "," +
 							(-mOffsetY + mActiveViewPort.top) + ")");
 					synchronized(mActivePixmap) {
+						// background:
 						c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
+						// pixmap:
 						c.drawBitmap(
 								mActivePixmap.buf,
 								0,
@@ -783,46 +789,49 @@ implements OnGestureListener, SurfaceHolder.Callback {
 		public void openPage(PdfDocument doc, int pageno, float zoom, int rotation, int dpiX, int dpiY) {
 			synchronized(mSurfaceHolder) {
 				Log.d(TAG, "onOpenPage event triggered...");
-				PdfPage page = doc.openPage(pageno);
+				try {
+					PdfPage page = doc.openPage(pageno);
+					
+					mActiveViewPort = new Rect(0, 0, 0, 0);
+					
+					// this is the mediaBox in Postscript points (72 points = 1 inch)
+					RectF mediaBox = page.getMediaBox();
+					// matrix to apply to the mediaBox in order to calculate
+					// the page size in pixels
+					Matrix pageSizeMatrix = new Matrix();
 				
-				mActiveViewPort = new Rect(0, 0, 0, 0);
+					
+					// create Matrix for _rendering_ the PDF
+					mPageMatrix = new Matrix();
+					// the special thing is that in PDF, the coordinates (0,0) specify
+					// the _lower_ left corner, not the _upper_ left corner.
+					// so the coordinate system is basically mirrored on the x axis
+					// hence we scale the y dimension by -1
+					// and since we mirrored, we must move everything upwards
+					mPageMatrix.postTranslate(0, -(mediaBox.bottom - mediaBox.top));
+					mPageMatrix.postScale((float) zoom * dpiX / 72, -(float) zoom * dpiY / 72);
+					/* TODO: implement rotation */
 				
-				// this is the mediaBox in Postscript points (72 points = 1 inch)
-				RectF mediaBox = page.getMediaBox();
-				// matrix to apply to the mediaBox in order to calculate
-				// the page size in pixels
-				Matrix pageSizeMatrix = new Matrix();
-			
-				
-				// create Matrix for _rendering_ the PDF
-				mPageMatrix = new Matrix();
-				// the special thing is that in PDF, the coordinates (0,0) specify
-				// the _lower_ left corner, not the _upper_ left corner.
-				// so the coordinate system is basically mirrored on the x axis
-				// hence we scale the y dimension by -1
-				// and since we mirrored, we must move everything upwards
-				mPageMatrix.postTranslate(0, -(mediaBox.bottom - mediaBox.top));
-				mPageMatrix.postScale((float) zoom * dpiX / 72, -(float) zoom * dpiY / 72);
-				/* TODO: implement rotation */
-			
-				// similar for the calculation of the resulting page size in
-				// pixels, but we can ignore the different coordinate systems
-				// (but not the zoom factor/rotation)
-				pageSizeMatrix.postScale((float) zoom * dpiX / 72, (float) zoom * dpiY / 72);
-				pageSizeMatrix.mapRect(mediaBox);
-				// sets mPageSize:
-				mediaBox.round(mPageSize);
-				
-				// initializes the upper left display coordinates
-				mOffsetX = 0;
-				mOffsetY = 0;
-				
-				// finally, start the thread that will render for us:
-				Log.d(TAG, "starting a new RenderThread...");
-				mRenderThread = new DroidReaderRenderThread(this, mActivePixmap, page);
-				mRenderThread.start();
-				mPageLoaded = true;
-				
+					// similar for the calculation of the resulting page size in
+					// pixels, but we can ignore the different coordinate systems
+					// (but not the zoom factor/rotation)
+					pageSizeMatrix.postScale((float) zoom * dpiX / 72, (float) zoom * dpiY / 72);
+					pageSizeMatrix.mapRect(mediaBox);
+					// sets mPageSize:
+					mediaBox.round(mPageSize);
+					
+					// initializes the upper left display coordinates
+					mOffsetX = 0;
+					mOffsetY = 0;
+					
+					// finally, start the thread that will render for us:
+					Log.d(TAG, "starting a new RenderThread...");
+					mRenderThread = new DroidReaderRenderThread(this, mActivePixmap, page);
+					mRenderThread.start();
+					mPageLoaded = true;
+				} catch(PageLoadException e) {
+					// TODO: handle this!
+				}
 				// trigger update of the view
 				mFrameDirty = true;
 				interrupt();
@@ -915,14 +924,10 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	
 	/**
 	 * Maximum width of a rendered tile
-	 * 
-	 * TODO: make a configuration option
 	 */
 	private final int mTileMaxX;
 	/**
 	 * Maximum height of a rendered tile
-	 * 
-	 * TODO: make a configuration option
 	 */
 	private final int mTileMaxY;
 	

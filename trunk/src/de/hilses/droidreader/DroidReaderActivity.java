@@ -27,18 +27,27 @@ package de.hilses.droidreader;
 import org.openintents.intents.FileManagerIntents;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+import android.util.DisplayMetrics;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
 
 public class DroidReaderActivity extends Activity {
-	protected static final int REQUEST_CODE_PICK_FILE_OR_DIRECTORY = 1;
+	private static final int REQUEST_CODE_PICK_FILE = 1;
+	private static final int DIALOG_GET_PASSWORD = 1;
+	private static final String PREFS_NAME = "DroidReaderPrefs";
 
 	protected DroidReaderView mReaderView;
 	protected PdfDocument mDocument;
@@ -48,8 +57,9 @@ public class DroidReaderActivity extends Activity {
 	protected int mRotate = 0;
 	protected int mDpiX = 160;
 	protected int mDpiY = 160;
-	protected int mTileMaxX = 500;
+	protected int mTileMaxX = 512;
 	protected int mTileMaxY = 512;
+	private String mFilename;
 	
 	/** Called when the activity is first created. */
 	@Override
@@ -58,13 +68,18 @@ public class DroidReaderActivity extends Activity {
 
 		// first, show the EULA:
 		Eula.show(this);
-		
-		
+
 		// then build our layout. it's so simple that we don't use
 		// XML for now.
 		FrameLayout fl = new FrameLayout(this);
 
 		mReaderView = new DroidReaderView(this, null, mTileMaxX, mTileMaxY);
+
+		// read the display's DPI
+		DisplayMetrics metrics = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(metrics);
+		mDpiX = (int) metrics.xdpi;
+		mDpiY = (int) metrics.ydpi;
 
 		fl.addView(mReaderView);
 		setContentView(fl);
@@ -73,18 +88,10 @@ public class DroidReaderActivity extends Activity {
 		Intent intent = getIntent();
 		if(intent.getData() != null) {
 			// yep:
-			String filename = intent.getData().toString();
-			if (filename.startsWith("file://")) {
-				filename = filename.substring(7);
-				mPageNo = 1;
-				try {
-					mDocument = new PdfDocument(filename, "");
-					mReaderView.openPage(mDocument, mPageNo,
-							mZoom, mRotate, mDpiX, mDpiY);
-				} catch (Exception e) {
-					Toast.makeText(this, R.string.error_opening_document, 
-							Toast.LENGTH_SHORT).show();
-				}
+			mFilename = intent.getData().toString();
+			if (mFilename.startsWith("file://")) {
+				mFilename = mFilename.substring(7);
+				openDocument("");
 			} else {
 				Toast.makeText(this, R.string.error_only_file_uris, 
 						Toast.LENGTH_SHORT).show();
@@ -109,7 +116,7 @@ public class DroidReaderActivity extends Activity {
 			intent.setData(Uri.parse("file://"));
 			intent.putExtra(FileManagerIntents.EXTRA_TITLE, getString(R.string.open_title));
 			try {
-				startActivityForResult(intent, REQUEST_CODE_PICK_FILE_OR_DIRECTORY);
+				startActivityForResult(intent, REQUEST_CODE_PICK_FILE);
 			} catch (ActivityNotFoundException e) {
 				Toast.makeText(this, R.string.error_no_filemanager_installed, 
 						Toast.LENGTH_SHORT).show();
@@ -130,7 +137,7 @@ public class DroidReaderActivity extends Activity {
 			}
 			return true;
 		case R.id.zoom_in:
-			mZoom*=2;
+			mZoom*=2.25;
 		case R.id.zoom_out:
 			mZoom*=.66;
 			mReaderView.openPage(mDocument, mPageNo,
@@ -147,25 +154,68 @@ public class DroidReaderActivity extends Activity {
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
 		switch (requestCode) {
-		case REQUEST_CODE_PICK_FILE_OR_DIRECTORY:
+		case REQUEST_CODE_PICK_FILE:
 			if (resultCode == RESULT_OK && data != null) {
-				String filename = data.getDataString();
-				if (filename != null) {
-					if (filename.startsWith("file://")) {
-						filename = filename.substring(7);
+				mFilename = data.getDataString();
+				if (mFilename != null) {
+					if (mFilename.startsWith("file://")) {
+						mFilename = mFilename.substring(7);
 					}
-					mPageNo = 1;
-					try {
-						mDocument = new PdfDocument(filename, "");
-						mReaderView.openPage(mDocument, mPageNo,
-								mZoom, mRotate, mDpiX, mDpiY);
-					} catch (Exception e) {
-						Toast.makeText(this, R.string.error_opening_document, 
-								Toast.LENGTH_SHORT).show();
-					}
+					openDocument("");
 				}
 			}
 			break;
 		}
+	}
+	
+	protected void openDocument(String password) {
+		mPageNo = 1;
+		try {
+			try {
+				mDocument = new PdfDocument(mFilename, password);
+				mReaderView.openPage(mDocument, mPageNo,
+						mZoom, mRotate, mDpiX, mDpiY);
+			} catch (PasswordNeededException e) {
+				showDialog(DIALOG_GET_PASSWORD);
+			} catch(WrongPasswordException e) {
+				Toast.makeText(this, R.string.error_wrong_password, 
+						Toast.LENGTH_LONG).show();
+			}
+		} catch (Exception e) {
+			Toast.makeText(this, R.string.error_opening_document, 
+					Toast.LENGTH_LONG).show();
+		}
+	}
+	
+	protected Dialog onCreateDialog(int id) {
+		switch(id) {
+		case DIALOG_GET_PASSWORD:
+			// displays a password dialog, stores entered password
+			// in mPassword, or resets it to an empty string if
+			// the input is cancelled.
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage(R.string.prompt_password);
+			View passwordinput = getLayoutInflater().inflate(R.layout.passworddialog,
+					(ViewGroup) findViewById(R.id.input_password));
+			builder.setView(passwordinput);
+			builder.setCancelable(false);
+			builder.setPositiveButton(R.string.button_pwddialog_open,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						DroidReaderActivity.this.openDocument(
+							((EditText) ((AlertDialog) dialog).findViewById(R.id.input_password)).getText().toString());
+						dialog.dismiss();
+					}
+				});
+			builder.setNegativeButton(R.string.button_pwddialog_cancel,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						dialog.cancel();
+					}
+				});
+			AlertDialog dialog = builder.create();
+			return dialog;
+		}
+		return null;
 	}
 }

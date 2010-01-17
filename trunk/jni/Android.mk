@@ -161,7 +161,8 @@ MY_MUPDF_C_INCLUDES := \
 	$(LOCAL_PATH)/jpeg \
 	$(LOCAL_PATH)/mupdf/fitzdraw \
 	$(LOCAL_PATH)/mupdf/fitz \
-	$(LOCAL_PATH)/mupdf/mupdf
+	$(LOCAL_PATH)/mupdf/mupdf \
+	$(LOCAL_PATH)
 
 #MY_MUPDF_CFLAGS := -Drestrict= -DNOCJK
 
