@@ -50,12 +50,12 @@ the Free Software Foundation, either version 3 of the License, or
 /* Exception classes */
 
 #define EXC						"java/lang/Exception"
-#define EXC_CANNOT_REPAIR		"java/lang/Exception"
-#define EXC_CANNOT_DECRYPTXREF	"java/lang/Exception"
-#define EXC_NEED_PASSWORD		"java/lang/Exception"
-#define EXC_PAGELOAD			"java/lang/Exception"
-#define EXC_PAGERENDER			"java/lang/Exception"
-#define EXC_WRONG_PASSWORD		"java/lang/Exception"
+#define EXC_CANNOT_REPAIR		"de/hilses/droidreader/CannotRepairException"
+#define EXC_CANNOT_DECRYPTXREF	"de/hilses/droidreader/CannotDecryptXrefException"
+#define EXC_NEED_PASSWORD		"de/hilses/droidreader/PasswordNeededException"
+#define EXC_PAGELOAD			"de/hilses/droidreader/PageLoadException"
+#define EXC_PAGERENDER			"de/hilses/droidreader/PageRenderException"
+#define EXC_WRONG_PASSWORD		"de/hilses/droidreader/WrongPasswordException"
 
 
 /************************************************************************/
@@ -84,8 +84,11 @@ void throw_exception(JNIEnv *env, char *exception_class, char *message)
 {
 	jthrowable new_exception = (*env)->FindClass(env, exception_class);
 	if(new_exception == NULL) {
-		ERROR("cannot create Exception '%s', Message was '%s'");
+		ERROR("cannot create Exception '%s', Message was '%s'",
+				exception_class, message);
 		return;
+	} else {
+		DEBUG("Exception '%s', Message: '%s'", exception_class, message);
 	}
 	(*env)->ThrowNew(env, new_exception, message);
 }
@@ -168,8 +171,8 @@ JNIEXPORT jlong JNICALL
 
 	if (pdf_needspassword(doc->xref)) {
 		if(strlen(password)) {
-			error = pdf_authenticatepassword(doc->xref, password);
-			if(error) {
+			int ok = pdf_authenticatepassword(doc->xref, password);
+			if(!ok) {
 				throw_exception(env, EXC_WRONG_PASSWORD,
 						"Wrong password given");
 				goto cleanup;
@@ -190,7 +193,7 @@ JNIEXPORT jlong JNICALL
 	doc->xref->root = fz_resolveindirect(obj);
 	if (!doc->xref->root) {
 		fz_throw("syntaxerror: missing Root object");
-		throw_exception(env, EXC, "PDF syntax: missing \"Root\" object");
+		throw_exception(env, EXC_CANNOT_DECRYPTXREF, "PDF syntax: missing \"Root\" object");
 		goto cleanup;
 	}
 	fz_keepobj(doc->xref->root);

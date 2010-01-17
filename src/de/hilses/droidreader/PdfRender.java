@@ -79,6 +79,31 @@ final class PdfRender {
 	}
 }
 
+class CannotRepairException extends Exception {
+	private static final long serialVersionUID = 1L;
+	CannotRepairException(String detailMessage) { super(detailMessage); }
+}
+class CannotDecryptXrefException extends Exception {
+	private static final long serialVersionUID = 1L;
+	CannotDecryptXrefException(String detailMessage) { super(detailMessage); }
+}
+class PasswordNeededException extends Exception {
+	private static final long serialVersionUID = 1L;
+	PasswordNeededException(String detailMessage) { super(detailMessage); }
+}
+class PageLoadException extends Exception {
+	private static final long serialVersionUID = 1L;
+	PageLoadException(String detailMessage) { super(detailMessage); }
+}
+class PageRenderException extends Exception {
+	private static final long serialVersionUID = 1L;
+	PageRenderException(String detailMessage) { super(detailMessage); }
+}
+class WrongPasswordException extends Exception {
+	private static final long serialVersionUID = 1L;
+	WrongPasswordException(String detailMessage) { super(detailMessage); }
+}
+
 /**
  * Instantiate this for each PDF document
  */
@@ -107,14 +132,25 @@ class PdfDocument {
 	 */
 	private native long nativeOpen(
 			int fitzMemory,
-			String filename, String password);
+			String filename, String password) 
+		throws
+			PasswordNeededException,
+			WrongPasswordException,
+			CannotRepairException,
+			CannotDecryptXrefException;
 	
 	/**
 	 * open a PDF
 	 * @param filename the PDF file
 	 * @param password the password to use for opening
 	 */
-	public PdfDocument(String filename, String password) {
+	public PdfDocument(String filename, String password)
+		throws
+			PasswordNeededException, 
+			WrongPasswordException,
+			CannotRepairException,
+			CannotDecryptXrefException
+	{
 		mHandle = this.nativeOpen(
 				PdfRender.fitzMemory, filename, password);
 	}
@@ -149,7 +185,7 @@ class PdfDocument {
 	 * @param page the page number (page numbers starting at 1!)
 	 * @return the resulting PdfPage object
 	 */
-	public PdfPage openPage(int page) {
+	public PdfPage openPage(int page) throws PageLoadException {
 		return new PdfPage(this, page);
 	}
 }
@@ -188,14 +224,17 @@ class PdfPage {
 	 * @param no page number to open
 	 * @return handle for the opened page
 	 */
-	private native long nativeOpenPage(long dochandle, float[] mediabox, int no);
+	private native long nativeOpenPage(long dochandle, float[] mediabox, int no)
+		throws PageLoadException;
 
 	/**
 	 * constructs a new PdfPage object for a given page in a given document
 	 * @param doc the PdfDocument
 	 * @param no the number of the page (starting at 1) to open
 	 */
-	public PdfPage(PdfDocument doc, int no) {
+	public PdfPage(PdfDocument doc, int no)
+			throws PageLoadException
+	{
 		mDoc = doc;
 		this.no = no;
 		mHandle = this.nativeOpenPage(mDoc.mHandle, mMediabox, no);
@@ -252,7 +291,8 @@ class PdfView {
 	 */
 	private native void nativeCreateView(
 			long dochandle, long pagehandle,
-			int[] viewbox, float[] matrix, int[] buffer);
+			int[] viewbox, float[] matrix, int[] buffer)
+		throws PageRenderException;
 
 	/**
 	 * Render part of the page to a int[] buffer
@@ -260,7 +300,9 @@ class PdfView {
 	 * @param viewbox the excerpt Rect that we should render (coordinates after applying the matrix)
 	 * @param matrix the Matrix used for rendering
 	 */
-	public void render(PdfPage page, Rect viewbox, Matrix matrix) {
+	public void render(PdfPage page, Rect viewbox, Matrix matrix) 
+			throws PageRenderException
+	{
 		int size = viewbox.width() * viewbox.height()
 				* ((PdfRender.bytesPerPixel * 8) / 32);
 		if((buf == null) || (buf.length != size))
