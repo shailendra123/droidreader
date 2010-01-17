@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <string name="app_name">DroidReader</string>
+<string name="open_title">Open PDF File...</string>
+<string name="error_no_filemanager_installed">No filemanager found that we could use!</string>
+
+<string name="error_opening_document">Failed to open the document. The PDF file might be broken.</string>
+<string name="error_only_file_uris">Sorry, only &quot;file://&quot; URIs are currently supported.</string>
+<string name="status_no_document">No document loaded.</string>
+<string name="status_page_rendering">Rendering page...</string>
+<string name="eula_title">License</string>
+<string name="eula_accept">Accept</string>
+<string name="eula_refuse">Refuse</string>
+<string name="app_desc">An Open Source PDF Reader for the Android Platform</string>
+<string name="prompt_password">The file you are opening is protected with a password. Please enter it here:</string>
+<string name="button_pwddialog_open">Open PDF...</string>
+<string name="button_pwddialog_cancel">Cancel</string>
+<string name="error_wrong_password">The password you have given is incorrect!</string>
+
+<string name="menu_zoom">Zoom</string>
+<string name="menu_rotation">Rotate</string>
+<string name="menu_zoom_in">Zoom in...</string>
+<string name="menu_zoom_out">Zoom out...</string>
+<string name="menu_zoom_fit">Fit to page</string>
+<string name="menu_zoom_fitw">Fit to page width</string>
+<string name="menu_zoom_fith">Fit to page height</string>
+<string name="menu_zoom_orig">Reset to 100%</string>
+<string name="menu_rotation_left">Rotate 90° left</string>
+<string name="menu_rotation_right">Rotate 90° right</string>
+<string name="menu_file">File</string>
+<string name="menu_file_open">Open PDF</string>
+<string name="menu_file_quit">Quit DroidReader</string>
+<string name="button_ok">OK</string>
+<string name="menu_file_about">About DroidReader</string>
+</resources>
