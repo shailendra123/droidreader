@@ -33,4 +33,13 @@
 <string name="menu_file_quit">Quit DroidReader</string>
 <string name="button_ok">OK</string>
 <string name="menu_file_about">About DroidReader</string>
+<string name="menu_goto">Go to...</string>
+<string name="menu_goto_first">first page</string>
+<string name="menu_goto_last">last page</string>
+<string name="menu_goto_ask">enter page no...</string>
+
+<string name="prompt_goto_page">Enter the page number you want to jump to:</string>
+<string name="error_no_such_page">Sorry, no such page!</string>
+<string name="button_page_open">Open</string>
+<string name="button_page_cancel">Cancel</string>
 </resources>

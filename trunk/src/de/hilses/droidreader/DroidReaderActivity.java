@@ -56,6 +56,7 @@ public class DroidReaderActivity extends Activity {
 	private static final int REQUEST_CODE_PICK_FILE = 1;
 	private static final int DIALOG_GET_PASSWORD = 1;
 	private static final int DIALOG_ABOUT = 2;
+	private static final int DIALOG_GOTO_PAGE = 3;
 
 	protected DroidReaderView mReaderView;
 	protected PdfDocument mDocument;
@@ -95,12 +96,12 @@ public class DroidReaderActivity extends Activity {
 		
 		mButtonPrev.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				DroidReaderActivity.this.gotoPrevPage();
+				DroidReaderActivity.this.gotoPage(DroidReaderActivity.this.mPageNo - 1);
 			}
 		});
 		mButtonNext.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				DroidReaderActivity.this.gotoNextPage();
+				DroidReaderActivity.this.gotoPage(DroidReaderActivity.this.mPageNo + 1);
 			}
 		});
 
@@ -109,7 +110,16 @@ public class DroidReaderActivity extends Activity {
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		mDpiX = (int) metrics.xdpi;
 		mDpiY = (int) metrics.ydpi;
+		
+		// set the tile size for rendering to 1.5*<longer side of display>
+		mTileMaxX = (int) (metrics.widthPixels * 1.5F);
+		mTileMaxY = (int) (metrics.heightPixels * 1.5F);
+		if(mTileMaxX>mTileMaxY)
+			mTileMaxY = mTileMaxX;
+		else
+			mTileMaxX = mTileMaxY;
 
+		// add the viewing area and the navigation
 		fl.addView(mReaderView);
 		fl.addView(navigationOverlay, new FrameLayout.LayoutParams(
 				ViewGroup.LayoutParams.FILL_PARENT,
@@ -129,6 +139,7 @@ public class DroidReaderActivity extends Activity {
 			mFilename = intent.getData().toString();
 			if (mFilename.startsWith("file://")) {
 				mFilename = mFilename.substring(7);
+				// try to open with no password
 				openDocument("");
 			} else {
 				Toast.makeText(this, R.string.error_only_file_uris, 
@@ -137,17 +148,20 @@ public class DroidReaderActivity extends Activity {
 		}
 	}
 	
-	/* Creates the menu items */
+	/** Creates the menu items */
 	public boolean onCreateOptionsMenu(Menu menu) {
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.options_menu, menu);
 		return true;
 	}
 
-	/* Handles item selections */
+	/** Handles item selections */
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
+		
+		// Zooming:
+		
 		case R.id.zoom_in:
 			mZoom*=1.5;
 			mReaderView.openPage(mDocument, mPageNo,
@@ -178,6 +192,9 @@ public class DroidReaderActivity extends Activity {
 			mReaderView.openPage(mDocument, mPageNo,
 					mZoom, mRotate, mDpiX, mDpiY);
 			return true;
+			
+		// Rotation:
+			
 		case R.id.rotation_left:
 			mRotate += 270;
 			mRotate %= 360;
@@ -190,7 +207,27 @@ public class DroidReaderActivity extends Activity {
 			mReaderView.openPage(mDocument, mPageNo,
 					mZoom, mRotate, mDpiX, mDpiY);
 			return true;
+			
+		// Page Navigation:
+			
+		case R.id.goto_first:
+			gotoPage(1);
+			return true;
+		case R.id.goto_last:
+			try {
+				gotoPage(mDocument.pagecount);
+			} catch(NullPointerException e) {
+				// do document yet...
+			}
+			return true;
+		case R.id.goto_ask:
+			showDialog(DIALOG_GOTO_PAGE);
+			return true;
+			
+		// File menu
+			
 		case R.id.open_file:
+			// present the file manager's "open..." dialog
 			mButtonPrev.setClickable(false);
 			mButtonNext.setClickable(false);
 			mReaderView.closeDoc();
@@ -205,54 +242,50 @@ public class DroidReaderActivity extends Activity {
 			}
 			return true;
 		case R.id.about:
+			// show the about dialog
 			showDialog(DIALOG_ABOUT);
 			return true;
 		case R.id.quit:
+			// quit Activity
 			finish();
 			return true;
 		}
 		return false;
 	}
-	
-	protected void gotoPrevPage() {
+
+	/**
+	 * jump to a certain page of the PDF
+	 * @param pageNo the page number to show
+	 */
+	protected void gotoPage(int pageNo) {
 		try {
-			if(1 < mPageNo) {
-				mPageNo--;
-				if(1 == mPageNo) {
+			if((pageNo >= 1) && (pageNo <= mDocument.pagecount)) {
+				if(pageNo == 1) {
 					mButtonPrev.setClickable(false);
 					mButtonPrev.setVisibility(View.INVISIBLE);
-				}
-				if(mDocument.pagecount > mPageNo) {
-					mButtonNext.setClickable(true);
-					mButtonNext.setVisibility(View.VISIBLE);
-				}
-				mReaderView.openPage(mDocument, mPageNo,
-						mZoom, mRotate, mDpiX, mDpiY);
-			}
-		} catch(NullPointerException e) {
-			// no mDocument yet?
-		}
-	}
-
-	protected void gotoNextPage() {
-		try {
-			if(mDocument.pagecount > mPageNo) {
-				mPageNo++;
-				if(mDocument.pagecount == mPageNo) {
-					mButtonNext.setClickable(false);
-					mButtonNext.setVisibility(View.INVISIBLE);
-				}
-				if(1 < mPageNo) {
+				} else {
 					mButtonPrev.setClickable(true);
 					mButtonPrev.setVisibility(View.VISIBLE);
 				}
+				if(pageNo == mDocument.pagecount) {
+					mButtonNext.setClickable(false);
+					mButtonNext.setVisibility(View.INVISIBLE);
+				} else {
+					mButtonNext.setClickable(true);
+					mButtonNext.setVisibility(View.VISIBLE);
+				}
+				mPageNo = pageNo;
 				mReaderView.openPage(mDocument, mPageNo,
 						mZoom, mRotate, mDpiX, mDpiY);
+			} else {
+				Toast.makeText(this, R.string.error_no_such_page, 
+						Toast.LENGTH_SHORT).show();
 			}
 		} catch(NullPointerException e) {
 			// no mDocument yet?
 		}
 	}
+	
 	
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -273,20 +306,10 @@ public class DroidReaderActivity extends Activity {
 	}
 	
 	protected void openDocument(String password) {
-		mPageNo = 1;
-		mButtonPrev.setClickable(false);
-		mButtonNext.setClickable(false);
-		mButtonPrev.setVisibility(View.INVISIBLE);
-		mButtonNext.setVisibility(View.INVISIBLE);
 		try {
 			try {
 				mDocument = new PdfDocument(mFilename, password);
-				mReaderView.openPage(mDocument, mPageNo,
-						mZoom, mRotate, mDpiX, mDpiY);
-				if(mDocument.pagecount > 1) {
-					mButtonNext.setClickable(true);
-					mButtonNext.setVisibility(View.VISIBLE);
-				}
+				gotoPage(1);
 			} catch (PasswordNeededException e) {
 				showDialog(DIALOG_GET_PASSWORD);
 			} catch(WrongPasswordException e) {
@@ -327,6 +350,33 @@ public class DroidReaderActivity extends Activity {
 				});
 			AlertDialog dialog = builder.create();
 			return dialog;
+		case DIALOG_GOTO_PAGE:
+			AlertDialog.Builder gotoBuilder = new AlertDialog.Builder(this);
+			gotoBuilder.setMessage(R.string.prompt_goto_page);
+			View pageinput = getLayoutInflater().inflate(R.layout.pagedialog,
+					(ViewGroup) findViewById(R.id.input_page));
+			gotoBuilder.setView(pageinput);
+			gotoBuilder.setCancelable(false);
+			gotoBuilder.setPositiveButton(R.string.button_page_open,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						DroidReaderActivity.this.gotoPage(
+							Integer.parseInt(
+								((EditText)
+										((AlertDialog) dialog).findViewById(R.id.input_page))
+										.getText()
+										.toString()));
+						dialog.dismiss();
+					}
+				});
+			gotoBuilder.setNegativeButton(R.string.button_page_cancel,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						dialog.cancel();
+					}
+				});
+			AlertDialog gotoDialog = gotoBuilder.create();
+			return gotoDialog;
 		case DIALOG_ABOUT:
 			AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(this);
 			WebView aboutWebView = new WebView(this);
