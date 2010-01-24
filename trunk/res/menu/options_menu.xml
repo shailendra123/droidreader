@@ -25,8 +25,9 @@
 <item android:id="@+id/submenu_file" android:title="@string/menu_file">
 	<menu>
 		<item android:id="@+id/open_file" android:title="@string/menu_file_open"/>
-		<item android:id="@+id/about" android:title="@string/menu_file_about"/>
+		<item android:id="@+id/options" android:title="@string/menu_file_options"></item><item android:id="@+id/about" android:title="@string/menu_file_about"/>
 		<item android:id="@+id/quit" android:title="@string/menu_file_quit"/>
-	</menu>
+	
+</menu>
 </item>
 </menu>

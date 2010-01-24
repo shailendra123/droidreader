@@ -36,8 +36,10 @@ import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.webkit.WebView;
 import android.widget.Button;
 import android.widget.EditText;
@@ -54,6 +56,8 @@ import android.view.View.OnClickListener;
 
 public class DroidReaderActivity extends Activity {
 	private static final int REQUEST_CODE_PICK_FILE = 1;
+	private static final int REQUEST_CODE_OPTION_DIALOG = 2;
+	
 	private static final int DIALOG_GET_PASSWORD = 1;
 	private static final int DIALOG_ABOUT = 2;
 	private static final int DIALOG_GOTO_PAGE = 3;
@@ -81,11 +85,12 @@ public class DroidReaderActivity extends Activity {
 
 		// first, show the EULA:
 		Eula.show(this);
-
+		
 		// then build our layout. it's so simple that we don't use
 		// XML for now.
 		FrameLayout fl = new FrameLayout(this);
 
+		readPreferences();
 		mReaderView = new DroidReaderView(this, null, mTileMaxX, mTileMaxY);
 		
 		View navigationOverlay = getLayoutInflater().inflate(R.layout.navigationoverlay,
@@ -104,20 +109,6 @@ public class DroidReaderActivity extends Activity {
 				DroidReaderActivity.this.gotoPage(DroidReaderActivity.this.mPageNo + 1);
 			}
 		});
-
-		// read the display's DPI
-		DisplayMetrics metrics = new DisplayMetrics();
-		getWindowManager().getDefaultDisplay().getMetrics(metrics);
-		mDpiX = (int) metrics.xdpi;
-		mDpiY = (int) metrics.ydpi;
-		
-		// set the tile size for rendering to 1.5*<longer side of display>
-		mTileMaxX = (int) (metrics.widthPixels * 1.5F);
-		mTileMaxY = (int) (metrics.heightPixels * 1.5F);
-		if(mTileMaxX>mTileMaxY)
-			mTileMaxY = mTileMaxX;
-		else
-			mTileMaxX = mTileMaxY;
 
 		// add the viewing area and the navigation
 		fl.addView(mReaderView);
@@ -148,6 +139,49 @@ public class DroidReaderActivity extends Activity {
 		}
 	}
 	
+	private void readPreferences() {
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+		DisplayMetrics metrics = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(metrics);
+
+		if(prefs.getString("zoom_type", "0").equals("0")) {
+			int zoom = Integer.parseInt(prefs.getString("zoom_percent", "50"));
+			if((1 <= zoom) && (1000 >= zoom)) {
+				mZoom = ((float)zoom) / 100;
+			}
+		} else {
+			mZoom = Float.parseFloat(prefs.getString("zoom_type", "0"));
+		}
+		
+		if(prefs.getBoolean("dpi_auto", true)) {
+			// read the display's DPI
+			mDpiX = (int) metrics.xdpi;
+			mDpiY = (int) metrics.ydpi;
+		} else {
+			mDpiX = Integer.parseInt(prefs.getString("dpi_manual", "160"));
+			if((mDpiX < 1) || (mDpiX > 4096))
+				mDpiX = 160; // sanity check fallback
+			mDpiY = mDpiX;
+		}
+		
+		if(prefs.getBoolean("tilesize_by_factor", true)) {
+			// set the tile size for rendering by factor
+			Float factor = Float.parseFloat(prefs.getString("tilesize_factor", "1.5"));
+			mTileMaxX = (int) (metrics.widthPixels * factor);
+			mTileMaxY = (int) (metrics.heightPixels * factor);
+		} else {
+			int tilesize_x = Integer.parseInt(prefs.getString("tilesize_x", "640"));
+			int tilesize_y = Integer.parseInt(prefs.getString("tilesize_x", "480"));
+			if(metrics.widthPixels < metrics.heightPixels) {
+				mTileMaxX = tilesize_x;
+				mTileMaxY = tilesize_y;
+			} else {
+				mTileMaxY = tilesize_x;
+				mTileMaxX = tilesize_y;
+			}
+		}
+	}
+
 	/** Creates the menu items */
 	public boolean onCreateOptionsMenu(Menu menu) {
 		MenuInflater inflater = getMenuInflater();
@@ -241,6 +275,10 @@ public class DroidReaderActivity extends Activity {
 						Toast.LENGTH_SHORT).show();
 			}
 			return true;
+		case R.id.options:
+			Intent optionsIntent = new Intent(this,DroidReaderOptions.class);
+			startActivityForResult(optionsIntent, REQUEST_CODE_OPTION_DIALOG);
+			return true;
 		case R.id.about:
 			// show the about dialog
 			showDialog(DIALOG_ABOUT);
@@ -302,20 +340,28 @@ public class DroidReaderActivity extends Activity {
 				}
 			}
 			break;
+		case REQUEST_CODE_OPTION_DIALOG:
+			readPreferences();
+			try {
+				mReaderView.openPage(mDocument, mPageNo,
+						mZoom, mRotate, mDpiX, mDpiY);
+			} catch (NullPointerException e) {
+				// no document loaded
+			}
+			break;
 		}
 	}
 	
 	protected void openDocument(String password) {
 		try {
-			try {
-				mDocument = new PdfDocument(mFilename, password);
-				gotoPage(1);
-			} catch (PasswordNeededException e) {
-				showDialog(DIALOG_GET_PASSWORD);
-			} catch(WrongPasswordException e) {
-				Toast.makeText(this, R.string.error_wrong_password, 
-						Toast.LENGTH_LONG).show();
-			}
+			mDocument = new PdfDocument(mFilename, password);
+			readPreferences();
+			gotoPage(1);
+		} catch (PasswordNeededException e) {
+			showDialog(DIALOG_GET_PASSWORD);
+		} catch (WrongPasswordException e) {
+			Toast.makeText(this, R.string.error_wrong_password, 
+					Toast.LENGTH_LONG).show();
 		} catch (Exception e) {
 			Toast.makeText(this, R.string.error_opening_document, 
 					Toast.LENGTH_LONG).show();
