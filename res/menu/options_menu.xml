@@ -15,6 +15,13 @@
 		<item android:id="@+id/rotation_right" android:title="@string/menu_rotation_right"/>
 	</menu>
 </item>
+<item android:id="@+id/submenu_goto" android:title="@string/menu_goto">
+	<menu>
+		<item android:id="@+id/goto_first" android:title="@string/menu_goto_first"/>
+		<item android:id="@+id/goto_ask" android:title="@string/menu_goto_ask"/>
+		<item android:id="@+id/goto_last" android:title="@string/menu_goto_last"/>
+	</menu>
+</item>
 <item android:id="@+id/submenu_file" android:title="@string/menu_file">
 	<menu>
 		<item android:id="@+id/open_file" android:title="@string/menu_file_open"/>
