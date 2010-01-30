@@ -61,6 +61,18 @@
 <string name="prefs_tile_size_y">Longer tile side</string>
 <string name="prefs_dpi">Display: DPI</string>
 <string name="prefs_tile_size">Render engine tile size</string>
+<string name="prefs_cid_fonts">CID fonts</string>
+<string name="prefs_cid_default_font">/system/fonts/DroidSansFallback.ttf</string>
+<string name="prefs_cid_font_Adobe_CNS1_mincho">Adobe-CNS1 Mincho</string>
+<string name="prefs_cid_font_Adobe_CNS1_gothic">Adobe-CNS1 Gothic</string>
+<string name="prefs_cid_font_Adobe_GB1_mincho">Adobe-GB1 Mincho</string>
+<string name="prefs_cid_font_Adobe_GB1_gothic">Adobe-GB1 Gothic</string>
+<string name="prefs_cid_font_Adobe_Japan1_mincho">Adobe-Japan1 Mincho</string>
+<string name="prefs_cid_font_Adobe_Japan1_gothic">Adobe-Japan1 Gothic</string>
+<string name="prefs_cid_font_Adobe_Japan2_mincho">Adobe-Japan2 Mincho</string>
+<string name="prefs_cid_font_Adobe_Japan2_gothic">Adobe-Japan2 Gothic</string>
+<string name="prefs_cid_font_Adobe_Korea1_mincho">Adobe-Korea1 Mincho</string>
+<string name="prefs_cid_font_Adobe_Korea1_gothic">Adobe-Korea1 Gothic</string>
 <string name="status_no_document">No document loaded.</string>
 <string name="status_page_rendering">Rendering page...</string>
 </resources>

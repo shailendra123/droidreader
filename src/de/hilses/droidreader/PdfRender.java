@@ -31,6 +31,32 @@ import android.graphics.RectF;
 import java.lang.String;
 
 /**
+ * An instance of this class will provide font file names, reading from Preferences
+ */
+interface FontProvider {
+	/**
+	 * callback that is used to retrieve font file names
+	 * @param fontName the name of the font to load
+	 * @param collection the collection of fonts (CID)
+	 * @param flags font flags as understood by the MuPDF library
+	 */
+	String getFontFile(String fontName, String collection, int flags);
+}
+
+/**
+ * Fallback FontProvider that returns nothing
+ */
+class NullFontProvider implements FontProvider {
+	/**
+	 * always returns null
+	 */
+	@Override
+	public String getFontFile(String fontName, String collection, int flags) {
+		return null;
+	}
+}
+
+/**
  * Class that just loads the JNI lib and holds some basic configuration
  */
 final class PdfRender {
@@ -42,10 +68,39 @@ final class PdfRender {
 	 * how much memory is the MuPDF backend allowed to use
 	 */
 	protected static int fitzMemory = 512 * 1024;
+	
+	/**
+	 * the FontProvider instance that is queried from JNI code
+	 */
+	protected static FontProvider fontProvider = new NullFontProvider();
 
 	static {
 		/* JNI: load our native library */
 		System.loadLibrary("pdfrender");
+	}
+	
+	/**
+	 * just checks if a given file can be accessed from JNI code
+	 * @param fname the filename to check for
+	 * @return 0 if the file was found, libc's errno otherwise
+	 */
+	private static native int nativeCheckFont(String fname);
+	
+	/**
+	 * convenience method to check if a file is present and accessible from native code
+	 * @param fname the filename to check for
+	 * @return true if the file is there and we can read it, false otherwise
+	 */
+	static boolean checkFont(String fname) {
+		return (nativeCheckFont(fname) == 0);
+	}
+	
+	/**
+	 * Sets a new FontProvider
+	 * @param newProvider the new FontProvider
+	 */
+	static void setFontProvider(FontProvider newProvider) {
+		fontProvider = newProvider;
 	}
 	
 	/**

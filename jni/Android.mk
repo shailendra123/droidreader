@@ -95,6 +95,7 @@ MY_JPEG_SRC_FILES := \
 # 
 
 MY_FREETYPE_C_INCLUDES := \
+	$(LOCAL_PATH)/freetype-overlay/include \
 	$(LOCAL_PATH)/freetype/include
 
 MY_FREETYPE_CFLAGS := -DFT2_BUILD_LIBRARY
@@ -111,7 +112,6 @@ MY_FREETYPE_SRC_FILES := \
 	freetype/src/base/ftbase.c \
 	freetype/src/base/ftbbox.c \
 	freetype/src/base/ftglyph.c \
-	freetype/src/base/ftbdf.c \
 	freetype/src/base/ftbitmap.c \
 	freetype/src/base/ftcid.c \
 	freetype/src/base/ftfstype.c \
@@ -121,28 +121,19 @@ MY_FREETYPE_SRC_FILES := \
 	freetype/src/base/ftmm.c \
 	freetype/src/base/ftotval.c \
 	freetype/src/base/ftpatent.c \
-	freetype/src/base/ftpfr.c \
 	freetype/src/base/ftstroke.c \
 	freetype/src/base/ftsynth.c \
 	freetype/src/base/fttype1.c \
-	freetype/src/base/ftwinfnt.c \
 	freetype/src/base/ftxf86.c \
-	freetype/src/bdf/bdf.c \
 	freetype/src/cff/cff.c \
 	freetype/src/cid/type1cid.c \
-	freetype/src/pcf/pcf.c \
-	freetype/src/pfr/pfr.c \
 	freetype/src/sfnt/sfnt.c \
 	freetype/src/truetype/truetype.c \
 	freetype/src/type1/type1.c \
-	freetype/src/type42/type42.c \
-	freetype/src/winfonts/winfnt.c \
 	freetype/src/raster/raster.c \
 	freetype/src/smooth/smooth.c \
 	freetype/src/autofit/autofit.c \
 	freetype/src/cache/ftcache.c \
-	freetype/src/gzip/ftgzip.c \
-	freetype/src/lzw/ftlzw.c \
 	freetype/src/gxvalid/gxvalid.c \
 	freetype/src/otvalid/otvalid.c \
 	freetype/src/psaux/psaux.c \
@@ -164,18 +155,11 @@ MY_MUPDF_C_INCLUDES := \
 	$(LOCAL_PATH)/mupdf/mupdf \
 	$(LOCAL_PATH)
 
-# use this to build w/o a CJK font built-in:
-#MY_MUPDF_CFLAGS := -Drestrict= -DNOCJK
-# but see caveat below, unexpected breakage may occur.
-# ATM, the irony is that CJK compiles in a bit-wise copy
-# of Androids own droid.ttf ... Maybe resort to pointing
-# to it in the filesystem? But this would violate proper
-# API use. Bleh.
-MY_MUPDF_CFLAGS := -Drestrict=
+MY_MUPDF_CFLAGS := -Drestrict= -DEXTERNALFONTS
 
 MY_MUPDF_SRC_FILES := \
 	mupdf/mupdf/pdf_crypt.c \
-	mupdf/mupdf/pdf_debug.c \
+	mupdf-overlay/mupdf/pdf_debug.c \
 	mupdf/mupdf/pdf_lex.c \
 	mupdf/mupdf/pdf_nametree.c \
 	mupdf/mupdf/pdf_open.c \
@@ -195,7 +179,7 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/mupdf/pdf_font.c \
 	mupdf/mupdf/pdf_type3.c \
 	mupdf/mupdf/pdf_fontmtx.c \
-	mupdf/mupdf/pdf_fontfile.c \
+	mupdf-overlay/mupdf/pdf_fontfile.c \
 	mupdf/mupdf/pdf_function.c \
 	mupdf/mupdf/pdf_colorspace1.c \
 	mupdf/mupdf/pdf_colorspace2.c \
@@ -211,7 +195,6 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/mupdf/pdf_pagetree.c \
 	mupdf/mupdf/pdf_store.c \
 	mupdf/fitzdraw/glyphcache.c \
-	mupdf-overlay/fitzdraw/pixmap.c \
 	mupdf/fitzdraw/porterduff.c \
 	mupdf/fitzdraw/meshdraw.c \
 	mupdf/fitzdraw/imagedraw.c \
@@ -220,7 +203,8 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/fitzdraw/pathscan.c \
 	mupdf/fitzdraw/pathfill.c \
 	mupdf/fitzdraw/pathstroke.c \
-	mupdf-overlay/fitzdraw/render.c \
+	mupdf/fitzdraw/pixmap.c \
+	mupdf/fitzdraw/render.c \
 	mupdf/fitzdraw/blendmodes.c \
 	mupdf/fitz/base_cpudep.c \
 	mupdf/fitz/base_error.c \
@@ -265,25 +249,18 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/fitz/res_font.c \
 	mupdf/fitz/res_image.c \
 	mupdf/fitz/res_shade.c \
-	fonts/font_mono.c \
-	fonts/font_serif.c \
-	fonts/font_sans.c \
 	fonts/font_misc.c \
-	fonts/font_cjk.c \
+	fonts/font_mono.c \
+	fonts/font_sans.c \
+	fonts/font_serif.c \
 	cmaps/cmap_cns.c \
 	cmaps/cmap_korea.c \
 	cmaps/cmap_tounicode.c \
 	cmaps/cmap_japan.c \
 	cmaps/cmap_gb.c
 
-# omit this when building w/o CJK support:
-#	fonts/font_cjk.c
-# but note that this also breaks some CMaps, giving
-# unexpected results even with files that have all fonts
-# embedded and are just assuming that external CMaps are present
-
 # uses libz, which is officially supported for NDK API
-MY_MUPDF_LDLIBS := -lz
+MY_MUPDF_LDLIBS := -lz -llog
 
 LOCAL_CFLAGS := \
 	$(MY_FREETYPE_CFLAGS) \

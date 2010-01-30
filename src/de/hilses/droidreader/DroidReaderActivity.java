@@ -86,6 +86,9 @@ public class DroidReaderActivity extends Activity {
 		// first, show the EULA:
 		Eula.show(this);
 		
+		// Initialize the PdfRender engine
+		PdfRender.setFontProvider(new DroidReaderFontProvider(this));
+		
 		// then build our layout. it's so simple that we don't use
 		// XML for now.
 		FrameLayout fl = new FrameLayout(this);
