@@ -26,6 +26,8 @@ the Free Software Foundation, either version 3 of the License, or
 
 #include <android/log.h>
 
+#include <errno.h>
+
 #include <fitz.h>
 #include <mupdf.h>
 
@@ -39,13 +41,17 @@ the Free Software Foundation, either version 3 of the License, or
 
 /* Debugging helper */
 
-//#define DEBUG(args...) \
+/*
+#define DEBUG(args...) \
 	__android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
+*/
 #define DEBUG(args...) {}
 #define ERROR(args...) \
 	__android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
-//#define INFO(args...) \
+/*
+#define INFO(args...) \
 	__android_log_print(ANDROID_LOG_INFO, "PdfRender", args)
+*/
 #define INFO(args...) {}
 
 
@@ -59,6 +65,8 @@ the Free Software Foundation, either version 3 of the License, or
 #define EXC_PAGERENDER			"de/hilses/droidreader/PageRenderException"
 #define EXC_WRONG_PASSWORD		"de/hilses/droidreader/WrongPasswordException"
 
+
+extern fz_error rendernode(fz_renderer *gc, fz_node *node, fz_matrix ctm);
 
 /************************************************************************/
 
@@ -78,6 +86,12 @@ struct renderpage_s
 	fz_rect bbox;
 };
 
+
+/**
+ * we cache a reference to the JVM here
+ */
+JavaVM *cached_jvm;
+
 /************************************************************************/
 
 /* our own helper functions: */
@@ -95,6 +109,65 @@ void throw_exception(JNIEnv *env, char *exception_class, char *message)
 	(*env)->ThrowNew(env, new_exception, message);
 }
 
+/* a callback to retrieve font file names */
+
+fz_error
+pdf_getfontfile(pdf_fontdesc *font, char *fontname, char *collection, char **filename)
+{
+	JNIEnv *env;
+	jboolean iscopy;
+	jclass pdfrender;
+	jclass fontproviderclass;
+	jfieldID fontproviderfield;
+	jobject fontprovider;
+	jmethodID getfontfilemethod;
+	jstring fontfilestring;
+	char *filenamebuf;
+
+	DEBUG("pdf_getfontfile(%p, '%s', '%s')", font, fontname, collection);
+
+	if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
+		return fz_throw("cannot find our JNI env!");
+
+	pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
+	if(pdfrender == NULL)
+		return fz_throw("cannot find JNI interface class");
+
+	fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
+			"fontProvider", "Lde/hilses/droidreader/FontProvider;");
+	if(fontproviderfield == NULL)
+		return fz_throw("cannot find fontProvider field");
+
+	fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
+	if(fontprovider == NULL)
+		return fz_throw("cannot access fontProvider field");
+
+	fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
+	if(fontproviderclass == NULL)
+		return fz_throw("cannot get class for fontProvider field content");
+
+	getfontfilemethod = (*env)->GetMethodID(env, fontproviderclass,
+			"getFontFile",
+			"(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;");
+	if(getfontfilemethod == NULL)
+		return fz_throw("cannot find method getFontFile() in fontProvider");
+
+	fontfilestring = (*env)->CallObjectMethod(
+			env, fontprovider, getfontfilemethod,
+			(*env)->NewStringUTF(env, fontname),
+			(*env)->NewStringUTF(env, collection),
+			(jint) font->flags);
+	if(fontfilestring == NULL)
+		return fz_throw("could not get filename for font");
+
+	filenamebuf = (*env)->GetStringUTFChars(env, fontfilestring, &iscopy);
+	*filename = fz_strdup(filenamebuf);
+	(*env)->ReleaseStringUTFChars(env, fontfilestring, filenamebuf);
+
+	DEBUG("got font file: '%s'", *filename);
+	return fz_okay;
+}
+
 /* JNI Interface: */
 
 JNI_OnLoad(JavaVM *jvm, void *reserved)
@@ -105,7 +178,32 @@ JNI_OnLoad(JavaVM *jvm, void *reserved)
 	fz_cpudetect();
 	fz_accelerate();
 
+	cached_jvm = jvm;
+
 	return JNI_VERSION_1_2;
+}
+
+JNIEXPORT jint JNICALL
+	Java_de_hilses_droidreader_PdfRender_checkFont
+	(JNIEnv *env, jobject class, jstring fname)
+{
+	char *filename;
+	jboolean iscopy;
+	int result = 1;
+	FILE *fd;
+
+	filename = (*env)->GetStringUTFChars(env, fname, &iscopy);
+
+	fd = fopen(filename, "r");
+	if(fd) {
+		fclose(fd);
+		result = 0;
+	} else {
+		result = errno;
+	}
+
+	(*env)->ReleaseStringUTFChars(env, fname, filename);
+	return (jint) result;
 }
 
 JNIEXPORT jlong JNICALL
@@ -346,6 +444,11 @@ JNIEXPORT void JNICALL
 	jint *buffer;
 	int length, val;
 
+	pixmap = fz_malloc(sizeof(fz_pixmap));
+	if(!pixmap) {
+		throw_exception(env, EXC, "Out of Memory");
+	}
+
 	/* initialize parameter arrays for MuPDF */
 
 	matrix = (*env)->GetPrimitiveArrayCritical(env, matrixarray, 0);
@@ -372,11 +475,18 @@ JNIEXPORT void JNICALL
 	DEBUG("doing the rendering...");
 	buffer = (*env)->GetPrimitiveArrayCritical(env, bufferarray, 0);
 
-	error = fz_newpixmapwithbufferandrect(&pixmap, (void*)buffer, viewbox, 4);
-	if(!error)
-		error = fz_rendertreetopixmap(&pixmap, doc->rast,
-				page->page->tree, ctm,
-				viewbox, 1);
+	pixmap->x = viewbox.x0;
+	pixmap->y = viewbox.y0;
+	pixmap->w = viewbox.x1 - viewbox.x0;
+	pixmap->h = viewbox.y1 - viewbox.y0;
+	pixmap->n = 4;
+	pixmap->samples = (void*)buffer;
+
+	// white:
+	memset(pixmap->samples, 0xff, pixmap->w * pixmap->h * pixmap->n);
+
+	// do the actual rendering:
+	error = fz_rendertreeover(doc->rast, pixmap, page->page->tree, ctm);
 
 	/* evil magic: we transform the rendered image's byte order
 	 */
@@ -394,7 +504,7 @@ JNIEXPORT void JNICALL
 
 	(*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
 
-	fz_droppixmapwithoutbuffer(pixmap);
+	fz_free(pixmap);
 
 	if (error) {
 		DEBUG("error!");
