@@ -3,14 +3,6 @@
 
 #include <android/log.h>
 
-/*
- * Enable logging by setting environment variable MULOG to:
- *   (a)ll or a combination of
- *   (x)ref (r)src (f)ont (i)mage (s)hade (p)age
- *
- * eg. MULOG=fis ./x11pdf mytestfile.pdf
- */
-
 enum
 {
 	PDF_LXREF = 1,
@@ -24,11 +16,14 @@ enum
 static inline void pdflog(int tag, char *name, char *fmt, va_list ap)
 {
 	static int flags = 0;
+	static char buffer[1024] = { 0 };
 
 	if (!(flags & tag))
 		return;
 
-	__android_log_print(ANDROID_LOG_DEBUG, "MuPDF", fmt, ap);
+	vsnprintf(buffer, sizeof buffer, fmt, ap);
+
+	__android_log_print(ANDROID_LOG_DEBUG, "MuPDF", "[%s]: %s", name, buffer);
 }
 
 void pdf_logxref(char *fmt, ...)

@@ -29,6 +29,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 
 import java.lang.String;
+import java.nio.ByteBuffer;
 
 /**
  * An instance of this class will provide font file names, reading from Preferences
@@ -39,8 +40,25 @@ interface FontProvider {
 	 * @param fontName the name of the font to load
 	 * @param collection the collection of fonts (CID)
 	 * @param flags font flags as understood by the MuPDF library
+	 * @return file name with full path
 	 */
 	String getFontFile(String fontName, String collection, int flags);
+	
+	/**
+	 * callback that is used to retrieve a buffer containing font data
+	 * @param fontName the name of the font to load
+	 * @param collection the collection of fonts (CID)
+	 * @param flags font flags as understood by the MuPDF library
+	 * @return allocated ByteBuffer filled with the font data
+	 */
+	ByteBuffer getFontBuffer(String fontName, String collection, int flags);
+	
+	/**
+	 * callback that is used to retrieve a buffer containing charmap (CMap) data
+	 * @param cmapName charmap to load
+	 * @return allocated ByteBuffer filled with the cmap data
+	 */
+	ByteBuffer getCMapBuffer(String cmapName);
 }
 
 /**
@@ -52,6 +70,20 @@ class NullFontProvider implements FontProvider {
 	 */
 	@Override
 	public String getFontFile(String fontName, String collection, int flags) {
+		return null;
+	}
+	/**
+	 * always returns null
+	 */
+	@Override
+	public ByteBuffer getFontBuffer(String fontName, String collection, int flags) {
+		return null;
+	}
+	/**
+	 * always returns null
+	 */
+	@Override
+	public ByteBuffer getCMapBuffer(String cmapName) {
 		return null;
 	}
 }

@@ -49,28 +49,6 @@ imported as a new project.
 
 When you have done this, do the following:
 
-- Currently, you need to build MuPDF on your _host_ system once.
-  This is due to the basic fonts and charmaps, which we need
-  and which are converted to .c files for compilation into
-  the MuPDF library. So change to the root of your MuPDF
-  sources, and issue the following command:
-
-  $ jam
-
-  It should then build. If it doesn't, that might be because
-  you don't have the jam utility installed yet. See MuPDF's
-  documentation for all the details.
-
-- copy the font_*.c and cmap_*.c files from the
-
-  build/<platform-config>/
-
-  directory within the MuPDF sources into the
-
-  jni/fonts/  and  jni/cmaps/
-
-  directories of the DroidReader project tree.
-
 - copy or symlink the libjpeg sources to the
 
   jni/jpeg/

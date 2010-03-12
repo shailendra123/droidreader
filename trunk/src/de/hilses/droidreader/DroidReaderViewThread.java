@@ -128,14 +128,10 @@ implements DroidReaderRenderThread.RenderListener {
 	
 	/**
 	 * Maximum width of a rendered tile
-	 * 
-	 * TODO: make a configuration option
 	 */
 	private final int mTileMaxX;
 	/**
 	 * Maximum height of a rendered tile
-	 * 
-	 * TODO: make a configuration option
 	 */
 	private final int mTileMaxY;
 	/**
