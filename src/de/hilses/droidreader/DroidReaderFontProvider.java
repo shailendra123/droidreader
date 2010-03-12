@@ -24,6 +24,11 @@ the Free Software Foundation, either version 3 of the License, or
 
 package de.hilses.droidreader;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.util.HashMap;
+
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
@@ -41,7 +46,12 @@ public class DroidReaderFontProvider implements FontProvider {
 	/**
 	 * Our Activity
 	 */
-	private Activity mActivity;
+	protected Activity mActivity;
+	
+	/**
+	 * Font buffers
+	 */
+	protected static HashMap<String,ByteBuffer> mFontCache = new HashMap<String,ByteBuffer>();
 	
 	/**
 	 * Instantiates a new FontProvider
@@ -59,7 +69,7 @@ public class DroidReaderFontProvider implements FontProvider {
 	 */
 	@Override
 	public String getFontFile(String fontName, String collection, int flags) {
-		Log.d(TAG, "Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
+		Log.d(TAG, "(File) Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
 		
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mActivity);
 		
@@ -74,5 +84,117 @@ public class DroidReaderFontProvider implements FontProvider {
 		}
 		
 		return font;
+	}
+
+	@Override
+	public ByteBuffer getFontBuffer(String fontName, String collection,
+			int flags) {
+		ByteBuffer newBuffer;
+		long bufferLength;
+		String fontFile;
+		InputStream inputStream;
+		
+		Log.d(TAG, "(Buffer) Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
+		
+		if(mFontCache.containsKey(fontName)) {
+			Log.d(TAG, "found in our cache.");
+			return mFontCache.get(fontName);
+		}
+		
+		if(fontName.equals("Courier")) {
+			fontFile = "NimbusMonL-Regu.cff";
+		} else if(fontName.equals("Courier-Bold")) {
+			fontFile = "NimbusMonL-Bold.cff";
+		} else if(fontName.equals("Courier-Oblique")) {
+			fontFile = "NimbusMonL-ReguObli.cff";
+		} else if(fontName.equals("Courier-BoldOblique")) {
+			fontFile = "NimbusMonL-BoldObli.cff";
+		} else if(fontName.equals("Helvetica")) {
+			fontFile = "NimbusSanL-Regu.cff";
+		} else if(fontName.equals("Helvetica-Bold")) {
+			fontFile = "NimbusSanL-Bold.cff";
+		} else if(fontName.equals("Helvetica-Oblique")) {
+			fontFile = "NimbusSanL-ReguItal.cff";
+		} else if(fontName.equals("Helvetica-BoldOblique")) {
+			fontFile = "NimbusSanL-BoldItal.cff";
+		} else if(fontName.equals("Times-Roman")) {
+			fontFile = "NimbusRomNo9L-Regu.cff";
+		} else if(fontName.equals("Times-Bold")) {
+			fontFile = "NimbusRomNo9L-Medi.cff";
+		} else if(fontName.equals("Times-Italic")) {
+			fontFile = "NimbusRomNo9L-ReguItal.cff";
+		} else if(fontName.equals("Times-BoldItalic")) {
+			fontFile = "NimbusRomNo9L-MediItal.cff";
+		} else if(fontName.equals("Symbol")) {
+			fontFile = "StandardSymL.cff";
+		} else if(fontName.equals("ZapfDingbats")) {
+			fontFile = "Dingbats.cff";
+		} else if(fontName.equals("Chancery")) {
+			fontFile = "URWChanceryL-MediItal.cff";
+		} else {
+			Log.d(TAG, "no such font available as a buffer.");
+			return null;
+		}
+		
+		try {
+			Log.d(TAG, "opening asset: font/"+fontFile);
+			inputStream = mActivity.getAssets().open("font/"+fontFile);
+		
+			bufferLength = inputStream.available();
+			Log.d(TAG, "reading asset to direct bytebuffer of length "+bufferLength);
+			
+			newBuffer = ByteBuffer.allocateDirect((int) bufferLength);
+			int len = 0;
+			int where = 0;
+			do {
+				byte[] buffer = new byte[4096];
+				where+=len;
+				len = inputStream.read(buffer);
+				if((len != -1) && (where+len < bufferLength)) {
+					newBuffer.put(buffer, 0, len);
+				}
+			} while(len != -1);
+			inputStream.close();
+			
+			mFontCache.put(fontName, newBuffer);
+			return newBuffer;
+		} catch(IOException e) {
+			Log.d(TAG, "error while loading font asset: "+e.getMessage());
+		} catch(Exception e) {
+			Log.d(TAG, "caught other exception: "+e.getMessage());
+		}
+		return null;
+	}
+
+	@Override
+	public ByteBuffer getCMapBuffer(String cmapName) {
+		ByteBuffer newBuffer;
+		long bufferLength;
+		InputStream inputStream;
+		try {
+			Log.d(TAG, "opening asset: cmap/"+cmapName);
+			inputStream = mActivity.getAssets().open("cmap/"+cmapName);
+		
+			bufferLength = inputStream.available();
+			Log.d(TAG, "reading asset to direct bytebuffer of length "+bufferLength);
+			
+			newBuffer = ByteBuffer.allocateDirect((int) bufferLength);
+			int len = 0;
+			int where = 0;
+			byte[] buffer = new byte[4096];
+			do {
+				where+=len;
+				len = inputStream.read(buffer);
+				if((len != -1) && (where+len <= bufferLength))
+					newBuffer.put(buffer, 0, len);
+			} while(len != -1);
+			inputStream.close();
+			return newBuffer;
+		} catch(IOException e) {
+			Log.d(TAG, "error while loading cmap asset: "+e.getMessage());
+		} catch(Exception e) {
+			Log.d(TAG, "caught other exception: "+e.getMessage());
+		}
+		return null;
 	}
 }

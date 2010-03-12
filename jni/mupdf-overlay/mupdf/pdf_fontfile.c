@@ -1,37 +1,6 @@
 #include "fitz.h"
 #include "mupdf.h"
 
-extern const unsigned char pdf_font_Dingbats_cff_buf[];
-extern const unsigned int  pdf_font_Dingbats_cff_len;
-extern const unsigned char pdf_font_NimbusMonL_Bold_cff_buf[];
-extern const unsigned int  pdf_font_NimbusMonL_Bold_cff_len;
-extern const unsigned char pdf_font_NimbusMonL_BoldObli_cff_buf[];
-extern const unsigned int  pdf_font_NimbusMonL_BoldObli_cff_len;
-extern const unsigned char pdf_font_NimbusMonL_Regu_cff_buf[];
-extern const unsigned int  pdf_font_NimbusMonL_Regu_cff_len;
-extern const unsigned char pdf_font_NimbusMonL_ReguObli_cff_buf[];
-extern const unsigned int  pdf_font_NimbusMonL_ReguObli_cff_len;
-extern const unsigned char pdf_font_NimbusRomNo9L_Medi_cff_buf[];
-extern const unsigned int  pdf_font_NimbusRomNo9L_Medi_cff_len;
-extern const unsigned char pdf_font_NimbusRomNo9L_MediItal_cff_buf[];
-extern const unsigned int  pdf_font_NimbusRomNo9L_MediItal_cff_len;
-extern const unsigned char pdf_font_NimbusRomNo9L_Regu_cff_buf[];
-extern const unsigned int  pdf_font_NimbusRomNo9L_Regu_cff_len;
-extern const unsigned char pdf_font_NimbusRomNo9L_ReguItal_cff_buf[];
-extern const unsigned int  pdf_font_NimbusRomNo9L_ReguItal_cff_len;
-extern const unsigned char pdf_font_NimbusSanL_Bold_cff_buf[];
-extern const unsigned int  pdf_font_NimbusSanL_Bold_cff_len;
-extern const unsigned char pdf_font_NimbusSanL_BoldItal_cff_buf[];
-extern const unsigned int  pdf_font_NimbusSanL_BoldItal_cff_len;
-extern const unsigned char pdf_font_NimbusSanL_Regu_cff_buf[];
-extern const unsigned int  pdf_font_NimbusSanL_Regu_cff_len;
-extern const unsigned char pdf_font_NimbusSanL_ReguItal_cff_buf[];
-extern const unsigned int  pdf_font_NimbusSanL_ReguItal_cff_len;
-extern const unsigned char pdf_font_StandardSymL_cff_buf[];
-extern const unsigned int  pdf_font_StandardSymL_cff_len;
-extern const unsigned char pdf_font_URWChanceryL_MediItal_cff_buf[];
-extern const unsigned int  pdf_font_URWChanceryL_MediItal_cff_len;
-
 enum
 {
 	FD_FIXED = 1 << 0,
@@ -45,60 +14,6 @@ enum
 	FD_FORCEBOLD = 1 << 18
 };
 
-static const struct
-{
-	const char *name;
-	const unsigned char *cff;
-	const unsigned int *len;
-	} basefonts[] = {
-	{ "Courier",
-		pdf_font_NimbusMonL_Regu_cff_buf,
-		&pdf_font_NimbusMonL_Regu_cff_len },
-	{ "Courier-Bold",
-		pdf_font_NimbusMonL_Bold_cff_buf,
-		&pdf_font_NimbusMonL_Bold_cff_len },
-	{ "Courier-Oblique",
-		pdf_font_NimbusMonL_ReguObli_cff_buf,
-		&pdf_font_NimbusMonL_ReguObli_cff_len },
-	{ "Courier-BoldOblique",
-		pdf_font_NimbusMonL_BoldObli_cff_buf,
-		&pdf_font_NimbusMonL_BoldObli_cff_len },
-	{ "Helvetica",
-		pdf_font_NimbusSanL_Regu_cff_buf,
-		&pdf_font_NimbusSanL_Regu_cff_len },
-	{ "Helvetica-Bold",
-		pdf_font_NimbusSanL_Bold_cff_buf,
-		&pdf_font_NimbusSanL_Bold_cff_len },
-	{ "Helvetica-Oblique",
-		pdf_font_NimbusSanL_ReguItal_cff_buf,
-		&pdf_font_NimbusSanL_ReguItal_cff_len },
-	{ "Helvetica-BoldOblique",
-		pdf_font_NimbusSanL_BoldItal_cff_buf,
-		&pdf_font_NimbusSanL_BoldItal_cff_len },
-	{ "Times-Roman",
-		pdf_font_NimbusRomNo9L_Regu_cff_buf,
-		&pdf_font_NimbusRomNo9L_Regu_cff_len },
-	{ "Times-Bold",
-		pdf_font_NimbusRomNo9L_Medi_cff_buf,
-		&pdf_font_NimbusRomNo9L_Medi_cff_len },
-	{ "Times-Italic",
-		pdf_font_NimbusRomNo9L_ReguItal_cff_buf,
-		&pdf_font_NimbusRomNo9L_ReguItal_cff_len },
-	{ "Times-BoldItalic",
-		pdf_font_NimbusRomNo9L_MediItal_cff_buf,
-		&pdf_font_NimbusRomNo9L_MediItal_cff_len },
-	{ "Symbol",
-		pdf_font_StandardSymL_cff_buf,
-		&pdf_font_StandardSymL_cff_len },
-	{ "ZapfDingbats",
-		pdf_font_Dingbats_cff_buf,
-		&pdf_font_Dingbats_cff_len },
-	{ "Chancery",
-		pdf_font_URWChanceryL_MediItal_cff_buf,
-		&pdf_font_URWChanceryL_MediItal_cff_len },
-	{ nil, nil, nil }
-};
-
 extern fz_error
 pdf_getfontfile(pdf_fontdesc *font, char *fontname, char *collection, char **filename);
 
@@ -109,13 +24,20 @@ pdf_loadstoredfont(pdf_fontdesc *font, char *fontname, char *collection)
 	unsigned char *data;
 	unsigned int len;
 	char *filename = NULL;
-	void *private;
-	int i;
 
-	for (i = 0; basefonts[i].name; i++)
-		if (!strcmp(fontname, basefonts[i].name))
-			goto found;
+	error = pdf_getfontbuffer(font, fontname, collection, &data, &len);
+	if (error)
+		goto trycid;
 
+	pdf_logfont("load builtin font %s\n", fontname);
+
+	error = fz_newfontfrombuffer(&font->font, data, len, 0);
+	if (error)
+		return fz_rethrow(error, "cannot load freetype font from buffer");
+
+	return fz_okay;
+
+trycid:
 	error = pdf_getfontfile(font, fontname, collection, &filename);
 	if (error)
 		return fz_rethrow(error, "cannot get filename for font");
@@ -127,18 +49,6 @@ pdf_loadstoredfont(pdf_fontdesc *font, char *fontname, char *collection)
 
 	if (error)
 		return fz_rethrow(error, "cannot load font from file");
-
-	return fz_okay;
-
-found:
-	pdf_logfont("load builtin font %s\n", fontname);
-
-	data = (unsigned char *) basefonts[i].cff;
-	len = *basefonts[i].len;
-
-	error = fz_newfontfrombuffer(&font->font, data, len, 0);
-	if (error)
-		return fz_rethrow(error, "cannot load freetype font from buffer");
 
 	return fz_okay;
 }

@@ -122,6 +122,8 @@ pdf_getfontfile(pdf_fontdesc *font, char *fontname, char *collection, char **fil
 	jobject fontprovider;
 	jmethodID getfontfilemethod;
 	jstring fontfilestring;
+	jstring fontnamestring;
+	jstring collectionstring;
 	char *filenamebuf;
 
 	DEBUG("pdf_getfontfile(%p, '%s', '%s')", font, fontname, collection);
@@ -152,11 +154,20 @@ pdf_getfontfile(pdf_fontdesc *font, char *fontname, char *collection, char **fil
 	if(getfontfilemethod == NULL)
 		return fz_throw("cannot find method getFontFile() in fontProvider");
 
+	fontnamestring = (*env)->NewStringUTF(env, fontname);
+	collectionstring = (*env)->NewStringUTF(env, collection);
+
 	fontfilestring = (*env)->CallObjectMethod(
 			env, fontprovider, getfontfilemethod,
-			(*env)->NewStringUTF(env, fontname),
-			(*env)->NewStringUTF(env, collection),
+			fontnamestring,
+			collectionstring,
 			(jint) font->flags);
+
+	/* TODO: release some references?!?
+	(*env)->DeleteLocalRef(env, fontnamestring);
+	(*env)->DeleteLocalRef(env, collectionstring);
+	*/
+
 	if(fontfilestring == NULL)
 		return fz_throw("could not get filename for font");
 
@@ -165,6 +176,137 @@ pdf_getfontfile(pdf_fontdesc *font, char *fontname, char *collection, char **fil
 	(*env)->ReleaseStringUTFChars(env, fontfilestring, filenamebuf);
 
 	DEBUG("got font file: '%s'", *filename);
+	return fz_okay;
+}
+
+fz_error
+pdf_getfontbuffer(pdf_fontdesc *font, char *fontname, char *collection, unsigned char **data, unsigned int *len) {
+	JNIEnv *env;
+	jboolean iscopy;
+	jclass pdfrender;
+	jclass fontproviderclass;
+	jfieldID fontproviderfield;
+	jobject fontprovider;
+	jmethodID getfontbuffermethod;
+	jobject fontbuffer;
+	jstring fontnamestring;
+	jstring collectionstring;
+
+	DEBUG("pdf_getfontbuffer(%p, '%s', '%s')", font, fontname, collection);
+
+	if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
+		return fz_throw("cannot find our JNI env!");
+
+	pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
+	if(pdfrender == NULL)
+		return fz_throw("cannot find JNI interface class");
+
+	fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
+			"fontProvider", "Lde/hilses/droidreader/FontProvider;");
+	if(fontproviderfield == NULL)
+		return fz_throw("cannot find fontProvider field");
+
+	fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
+	if(fontprovider == NULL)
+		return fz_throw("cannot access fontProvider field");
+
+	fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
+	if(fontproviderclass == NULL)
+		return fz_throw("cannot get class for fontProvider field content");
+
+	getfontbuffermethod = (*env)->GetMethodID(env, fontproviderclass,
+			"getFontBuffer",
+			"(Ljava/lang/String;Ljava/lang/String;I)Ljava/nio/ByteBuffer;");
+	if(getfontbuffermethod == NULL)
+		return fz_throw("cannot find method getFontBuffer() in fontProvider");
+
+	fontnamestring = (*env)->NewStringUTF(env, fontname);
+	collectionstring = (*env)->NewStringUTF(env, collection);
+
+	fontbuffer = (*env)->CallObjectMethod(
+			env, fontprovider, getfontbuffermethod,
+			fontnamestring,
+			collectionstring,
+			(jint) font->flags);
+/* TODO: release some references?!?
+	(*env)->DeleteLocalRef(env, fontnamestring);
+	(*env)->DeleteLocalRef(env, collectionstring);
+*/
+	DEBUG("got font buffer: %d", fontbuffer);
+
+	if(fontbuffer == NULL)
+		return fz_throw("could not get buffer for font");
+
+	*data = (unsigned char *) (*env)->GetDirectBufferAddress(env, fontbuffer);
+	*len = (unsigned int) (*env)->GetDirectBufferCapacity(env, fontbuffer);
+
+	if((*data == NULL) || (*len == -1))
+		return fz_throw("could not get buffer for font (JNI trouble!)");
+
+	DEBUG("got font buffer: %p, length=%d", *data, *len);
+	return fz_okay;
+}
+
+fz_error
+pdf_getcmapbuffer(char *cmapname, unsigned char **data, unsigned int *len) {
+	JNIEnv *env;
+	jboolean iscopy;
+	jclass pdfrender;
+	jclass fontproviderclass;
+	jfieldID fontproviderfield;
+	jobject fontprovider;
+	jmethodID getcmapbuffermethod;
+	jobject cmapbuffer;
+	jstring cmapnamestring;
+
+	DEBUG("pdf_getcmapbuffer('%s')", cmapname);
+
+	if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
+		return fz_throw("cannot find our JNI env!");
+
+	pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
+	if(pdfrender == NULL)
+		return fz_throw("cannot find JNI interface class");
+
+	fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
+			"fontProvider", "Lde/hilses/droidreader/FontProvider;");
+	if(fontproviderfield == NULL)
+		return fz_throw("cannot find fontProvider field");
+
+	fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
+	if(fontprovider == NULL)
+		return fz_throw("cannot access fontProvider field");
+
+	fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
+	if(fontproviderclass == NULL)
+		return fz_throw("cannot get class for fontProvider field content");
+
+	getcmapbuffermethod = (*env)->GetMethodID(env, fontproviderclass,
+			"getCMapBuffer",
+			"(Ljava/lang/String;)Ljava/nio/ByteBuffer;");
+	if(getcmapbuffermethod == NULL)
+		return fz_throw("cannot find method getCMapBuffer() in fontProvider");
+
+	cmapnamestring = (*env)->NewStringUTF(env, cmapname);
+
+	cmapbuffer = (*env)->CallObjectMethod(
+			env, fontprovider, getcmapbuffermethod,
+			cmapnamestring);
+/* TODO: release some references?!?
+	(*env)->DeleteLocalRef(env, cmapnamestring);
+*/
+	DEBUG("got cmap buffer: %d", cmapbuffer);
+
+	if(cmapbuffer == NULL)
+		return fz_throw("could not get buffer for cmap");
+
+	*data = (unsigned char *) (*env)->GetDirectBufferAddress(env, cmapbuffer);
+	*len = (unsigned int) (*env)->GetDirectBufferCapacity(env, cmapbuffer);
+
+	if((*data == NULL) || (*len == -1))
+		return fz_throw("could not get buffer for cmap (JNI trouble!)");
+
+	DEBUG("got cmap buffer: %p, length=%d (%d)", *data, *len, strlen(*data));
 	return fz_okay;
 }
 

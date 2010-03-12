@@ -171,8 +171,7 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/mupdf/pdf_outline.c \
 	mupdf/mupdf/pdf_cmap.c \
 	mupdf/mupdf/pdf_cmap_parse.c \
-	mupdf/mupdf/pdf_cmap_load.c \
-	mupdf/mupdf/pdf_cmap_table.c \
+	mupdf-overlay/mupdf/pdf_cmap_load.c \
 	mupdf/mupdf/pdf_fontagl.c \
 	mupdf/mupdf/pdf_fontenc.c \
 	mupdf/mupdf/pdf_unicode.c \
@@ -207,7 +206,7 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/fitzdraw/render.c \
 	mupdf/fitzdraw/blendmodes.c \
 	mupdf/fitz/base_cpudep.c \
-	mupdf/fitz/base_error.c \
+	mupdf-overlay/fitz/base_error.c \
 	mupdf/fitz/base_hash.c \
 	mupdf/fitz/base_matrix.c \
 	mupdf/fitz/base_memory.c \
@@ -248,16 +247,7 @@ MY_MUPDF_SRC_FILES := \
 	mupdf/fitz/res_colorspace.c \
 	mupdf/fitz/res_font.c \
 	mupdf/fitz/res_image.c \
-	mupdf/fitz/res_shade.c \
-	fonts/font_misc.c \
-	fonts/font_mono.c \
-	fonts/font_sans.c \
-	fonts/font_serif.c \
-	cmaps/cmap_cns.c \
-	cmaps/cmap_korea.c \
-	cmaps/cmap_tounicode.c \
-	cmaps/cmap_japan.c \
-	cmaps/cmap_gb.c
+	mupdf/fitz/res_shade.c
 
 # uses libz, which is officially supported for NDK API
 MY_MUPDF_LDLIBS := -lz -llog
