@@ -63,15 +63,7 @@ public class DroidReaderActivity extends Activity {
 	private static final int DIALOG_GOTO_PAGE = 3;
 
 	protected DroidReaderView mReaderView;
-	protected PdfDocument mDocument;
-	protected PdfPage mPage;
-	protected int mPageNo = 1;
-	protected float mZoom = (float) 0.5;
-	protected int mRotate = 0;
-	protected int mDpiX = 160;
-	protected int mDpiY = 160;
-	protected int mTileMaxX = 512;
-	protected int mTileMaxY = 512;
+	protected final DroidReaderDocument mDocument = new DroidReaderDocument();
 	
 	private Button mButtonPrev = null;
 	private Button mButtonNext = null;
@@ -94,7 +86,7 @@ public class DroidReaderActivity extends Activity {
 		FrameLayout fl = new FrameLayout(this);
 
 		readPreferences();
-		mReaderView = new DroidReaderView(this, null, mTileMaxX, mTileMaxY);
+		mReaderView = new DroidReaderView(this, null, mDocument);
 		
 		View navigationOverlay = getLayoutInflater().inflate(R.layout.navigationoverlay,
 				(ViewGroup) findViewById(R.id.navigationlayout));
@@ -104,12 +96,12 @@ public class DroidReaderActivity extends Activity {
 		
 		mButtonPrev.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				DroidReaderActivity.this.gotoPage(DroidReaderActivity.this.mPageNo - 1);
+				DroidReaderActivity.this.openPage(-1, true);
 			}
 		});
 		mButtonNext.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				DroidReaderActivity.this.gotoPage(DroidReaderActivity.this.mPageNo + 1);
+				DroidReaderActivity.this.openPage(+1, true);
 			}
 		});
 
@@ -150,37 +142,33 @@ public class DroidReaderActivity extends Activity {
 		if(prefs.getString("zoom_type", "0").equals("0")) {
 			int zoom = Integer.parseInt(prefs.getString("zoom_percent", "50"));
 			if((1 <= zoom) && (1000 >= zoom)) {
-				mZoom = ((float)zoom) / 100;
+				mDocument.setZoom(((float)zoom) / 100, false);
 			}
 		} else {
-			mZoom = Float.parseFloat(prefs.getString("zoom_type", "0"));
+			mDocument.setZoom(Float.parseFloat(prefs.getString("zoom_type", "0")), false);
 		}
 		
 		if(prefs.getBoolean("dpi_auto", true)) {
 			// read the display's DPI
-			mDpiX = (int) metrics.xdpi;
-			mDpiY = (int) metrics.ydpi;
+			mDocument.setDpi((int) metrics.xdpi, (int) metrics.ydpi);
 		} else {
-			mDpiX = Integer.parseInt(prefs.getString("dpi_manual", "160"));
-			if((mDpiX < 1) || (mDpiX > 4096))
-				mDpiX = 160; // sanity check fallback
-			mDpiY = mDpiX;
+			int dpi = Integer.parseInt(prefs.getString("dpi_manual", "160"));
+			if((dpi < 1) || (dpi > 4096))
+				dpi = 160; // sanity check fallback
+			mDocument.setDpi(dpi, dpi);
 		}
 		
 		if(prefs.getBoolean("tilesize_by_factor", true)) {
 			// set the tile size for rendering by factor
 			Float factor = Float.parseFloat(prefs.getString("tilesize_factor", "1.5"));
-			mTileMaxX = (int) (metrics.widthPixels * factor);
-			mTileMaxY = (int) (metrics.heightPixels * factor);
+			mDocument.setTileMax((int) (metrics.widthPixels * factor), (int) (metrics.heightPixels * factor));
 		} else {
 			int tilesize_x = Integer.parseInt(prefs.getString("tilesize_x", "640"));
 			int tilesize_y = Integer.parseInt(prefs.getString("tilesize_x", "480"));
 			if(metrics.widthPixels < metrics.heightPixels) {
-				mTileMaxX = tilesize_x;
-				mTileMaxY = tilesize_y;
+				mDocument.setTileMax(tilesize_x, tilesize_y);
 			} else {
-				mTileMaxY = tilesize_x;
-				mTileMaxX = tilesize_y;
+				mDocument.setTileMax(tilesize_y, tilesize_x);
 			}
 		}
 	}
@@ -200,62 +188,40 @@ public class DroidReaderActivity extends Activity {
 		// Zooming:
 		
 		case R.id.zoom_in:
-			mZoom*=1.5;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setZoom(1.5F, true);
 			return true;
 		case R.id.zoom_out:
-			mZoom*=.66;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setZoom(0.6666F, true);
 			return true;
 		case R.id.zoom_fit:
-			mZoom = DroidReaderView.ZOOM_FIT;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setZoom(DroidReaderDocument.ZOOM_FIT, false);
 			return true;
 		case R.id.zoom_fitw:
-			mZoom = DroidReaderView.ZOOM_FIT_WIDTH;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setZoom(DroidReaderDocument.ZOOM_FIT_WIDTH, false);
 			return true;
 		case R.id.zoom_fith:
-			mZoom = DroidReaderView.ZOOM_FIT_HEIGHT;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setZoom(DroidReaderDocument.ZOOM_FIT_HEIGHT, false);
 			return true;
 		case R.id.zoom_orig:
-			mZoom = 1.0F;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setZoom(1.0F, false);
 			return true;
 			
 		// Rotation:
 			
 		case R.id.rotation_left:
-			mRotate += 270;
-			mRotate %= 360;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setRotation(270, true);
 			return true;
 		case R.id.rotation_right:
-			mRotate += 90;
-			mRotate %= 360;
-			mReaderView.openPage(mDocument, mPageNo,
-					mZoom, mRotate, mDpiX, mDpiY);
+			mDocument.setRotation(90, true);
 			return true;
 			
 		// Page Navigation:
 			
 		case R.id.goto_first:
-			gotoPage(1);
+			openPage(1, false);
 			return true;
 		case R.id.goto_last:
-			try {
-				gotoPage(mDocument.pagecount);
-			} catch(NullPointerException e) {
-				// do document yet...
-			}
+			openPage(DroidReaderDocument.PAGE_LAST, false);
 			return true;
 		case R.id.goto_ask:
 			showDialog(DIALOG_GOTO_PAGE);
@@ -265,9 +231,6 @@ public class DroidReaderActivity extends Activity {
 			
 		case R.id.open_file:
 			// present the file manager's "open..." dialog
-			mButtonPrev.setClickable(false);
-			mButtonNext.setClickable(false);
-			mReaderView.closeDoc();
 			Intent intent = new Intent(FileManagerIntents.ACTION_PICK_FILE);
 			intent.setData(Uri.parse("file://"));
 			intent.putExtra(FileManagerIntents.EXTRA_TITLE, getString(R.string.open_title));
@@ -294,40 +257,6 @@ public class DroidReaderActivity extends Activity {
 		return false;
 	}
 
-	/**
-	 * jump to a certain page of the PDF
-	 * @param pageNo the page number to show
-	 */
-	protected void gotoPage(int pageNo) {
-		try {
-			if((pageNo >= 1) && (pageNo <= mDocument.pagecount)) {
-				if(pageNo == 1) {
-					mButtonPrev.setClickable(false);
-					mButtonPrev.setVisibility(View.INVISIBLE);
-				} else {
-					mButtonPrev.setClickable(true);
-					mButtonPrev.setVisibility(View.VISIBLE);
-				}
-				if(pageNo == mDocument.pagecount) {
-					mButtonNext.setClickable(false);
-					mButtonNext.setVisibility(View.INVISIBLE);
-				} else {
-					mButtonNext.setClickable(true);
-					mButtonNext.setVisibility(View.VISIBLE);
-				}
-				mPageNo = pageNo;
-				mReaderView.openPage(mDocument, mPageNo,
-						mZoom, mRotate, mDpiX, mDpiY);
-			} else {
-				Toast.makeText(this, R.string.error_no_such_page, 
-						Toast.LENGTH_SHORT).show();
-			}
-		} catch(NullPointerException e) {
-			// no mDocument yet?
-		}
-	}
-	
-	
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
@@ -345,21 +274,14 @@ public class DroidReaderActivity extends Activity {
 			break;
 		case REQUEST_CODE_OPTION_DIALOG:
 			readPreferences();
-			try {
-				mReaderView.openPage(mDocument, mPageNo,
-						mZoom, mRotate, mDpiX, mDpiY);
-			} catch (NullPointerException e) {
-				// no document loaded
-			}
 			break;
 		}
 	}
 	
 	protected void openDocument(String password) {
 		try {
-			mDocument = new PdfDocument(mFilename, password);
-			readPreferences();
-			gotoPage(1);
+			mDocument.open(mFilename, password, 1, 0, 0);
+			openPage(0, true);
 		} catch (PasswordNeededException e) {
 			showDialog(DIALOG_GET_PASSWORD);
 		} catch (WrongPasswordException e) {
@@ -368,6 +290,30 @@ public class DroidReaderActivity extends Activity {
 		} catch (Exception e) {
 			Toast.makeText(this, R.string.error_opening_document, 
 					Toast.LENGTH_LONG).show();
+		}
+	}
+	
+	protected void openPage(int no, boolean isRelative) {
+		try {
+			if(!(no == 0 && isRelative))
+				mDocument.openPage(no, isRelative);
+			if(mDocument.havePage(-1, true)) {
+				mButtonPrev.setClickable(true);
+				mButtonPrev.setVisibility(View.VISIBLE);
+			} else {
+				mButtonPrev.setClickable(false);
+				mButtonPrev.setVisibility(View.INVISIBLE);
+			}
+			if(mDocument.havePage(1, true)) {
+				mButtonNext.setClickable(true);
+				mButtonNext.setVisibility(View.VISIBLE);
+			} else {
+				mButtonNext.setClickable(false);
+				mButtonNext.setVisibility(View.INVISIBLE);
+			}
+			this.setTitle(mFilename+" ("+mDocument.mPage.no+")");
+		} catch (PageLoadException e) {
+			// TODO Auto-generated catch block
 		}
 	}
 	
@@ -409,12 +355,16 @@ public class DroidReaderActivity extends Activity {
 			gotoBuilder.setPositiveButton(R.string.button_page_open,
 				new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int id) {
-						DroidReaderActivity.this.gotoPage(
-							Integer.parseInt(
-								((EditText)
-										((AlertDialog) dialog).findViewById(R.id.input_page))
-										.getText()
-										.toString()));
+						try {
+							DroidReaderActivity.this.openPage(
+								Integer.parseInt(
+									((EditText)
+											((AlertDialog) dialog).findViewById(R.id.input_page))
+											.getText()
+											.toString()), false);
+						} catch (NumberFormatException e) {
+							// TODO Auto-generated catch block
+						}
 						dialog.dismiss();
 					}
 				});
@@ -445,23 +395,23 @@ public class DroidReaderActivity extends Activity {
 	}
 	
 	private CharSequence readAbout() {
-        BufferedReader in = null;
-        try {
-            in = new BufferedReader(new InputStreamReader(this.getAssets().open("about.html")));
-            String line;
-            StringBuilder buffer = new StringBuilder();
-            while ((line = in.readLine()) != null)
-            	buffer.append(line).append('\n');
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    // We can't do anything...
-                }
-            }
-            return buffer;
-        } catch (IOException e) {
-            return "";
-        }
+		BufferedReader in = null;
+		try {
+			in = new BufferedReader(new InputStreamReader(this.getAssets().open("about.html")));
+			String line;
+			StringBuilder buffer = new StringBuilder();
+			while ((line = in.readLine()) != null)
+				buffer.append(line).append('\n');
+			if (in != null) {
+				try {
+					in.close();
+				} catch (IOException e) {
+					// We can't do anything...
+				}
+			}
+			return buffer;
+		} catch (IOException e) {
+			return "";
+		}
 	}
 }
