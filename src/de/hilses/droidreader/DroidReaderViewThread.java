@@ -39,6 +39,7 @@ class DroidReaderViewThread extends Thread {
 	 * Debug helper
 	 */
 	protected final static String TAG = "DroidReaderViewThread";
+	protected final static boolean LOG = false;
 	/**
 	 * the SurfaceHolder for our Surface
 	 */
@@ -106,43 +107,47 @@ class DroidReaderViewThread extends Thread {
 	public void run() {
 		while (mRun) {
 			boolean doSleep = true;
-			if(mScroller.computeScrollOffset()) {
-				Log.d(TAG, "new scroll offset");
-				doSleep = false;
-				mDocument.offset(mScroller.getCurrX(), mScroller.getCurrY(), true);
+			if(!mScroller.isFinished()) {
+				if(mScroller.computeScrollOffset()) {
+					if(LOG) Log.d(TAG, "new scroll offset");
+					doSleep = false;
+					mDocument.offset(mScroller.getCurrX(), mScroller.getCurrY(), true);
+				} else {
+					mScroller.abortAnimation();
+				}
 			}
 			doDraw();
 			// if we're allowed, we will go to sleep now
 			if(doSleep) {
 				try {
 					// nothing to do, wait for someone waking us up:
-					Log.d(TAG, "ViewThread going to sleep");
+					if(LOG) Log.d(TAG, "ViewThread going to sleep");
 					Thread.sleep(3600000);
 				} catch (InterruptedException e) {
-					Log.d(TAG, "ViewThread woken up");
+					if(LOG) Log.d(TAG, "ViewThread woken up");
 				}
 			}
 		}
 		// mRun is now false, so we shut down.
-		Log.d(TAG, "shutting down");
+		if(LOG) Log.d(TAG, "shutting down");
 	}
 	
 	/**
 	 * this does the actual drawing to the Canvas for our surface
 	 */
 	private void doDraw() {
-		Log.d(TAG, "drawing...");
+		if(LOG) Log.d(TAG, "drawing...");
 		Canvas c = null;
 		try {
 			c = mSurfaceHolder.lockCanvas(null);
 			if(!mDocument.isPageLoaded()) {
 				// no page/document loaded
-				Log.d(TAG, "no page loaded.");
+				if(LOG) Log.d(TAG, "no page loaded.");
 				c.drawRect(0, 0, c.getWidth(), c.getHeight(), mNoPagePaint);
 			} else if(mDocument.havePixmap()) {
 				// we have both page and Pixmap, so draw:
 				// background:
-				Log.d(TAG, "page loaded, rendering pixmap");
+				if(LOG) Log.d(TAG, "page loaded, rendering pixmap");
 				c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
 				c.drawBitmap(
 						mDocument.mViews[mDocument.mCurrentView].mBuf,
@@ -156,7 +161,7 @@ class DroidReaderViewThread extends Thread {
 						null);
 			} else {
 				// page loaded, but no Pixmap yet
-				Log.d(TAG, "page loaded, but no active Pixmap.");
+				if(LOG) Log.d(TAG, "page loaded, but no active Pixmap.");
 				c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
 			}
 		} finally {
@@ -167,7 +172,7 @@ class DroidReaderViewThread extends Thread {
 	}
 	
 	public void triggerRepaint() {
-		Log.d(TAG, "repaint triggered");
+		if(LOG) Log.d(TAG, "repaint triggered");
 		interrupt();
 	}
 }

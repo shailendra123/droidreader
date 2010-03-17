@@ -51,6 +51,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	 * Debug helper
 	 */
 	protected final static String TAG = "DroidReaderView";
+	protected final static boolean LOG = false;
 
 
 	/**
@@ -99,7 +100,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	
 	@Override
 	public boolean onTrackballEvent(MotionEvent event) {
-		Log.d(TAG, "onTouchEvent(): notifying ViewThread");
+		if(LOG) Log.d(TAG, "onTouchEvent(): notifying ViewThread");
 		mDocument.offset((int) event.getX() * 20, (int) event.getY() * 20, true);
 		mThread.triggerRepaint();
 		return true;
@@ -107,7 +108,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	
 	@Override
 	public boolean onTouchEvent(final MotionEvent event) {
-		Log.d(TAG, "onTouchEvent(): notifying mGestureDetector");
+		if(LOG) Log.d(TAG, "onTouchEvent(): notifying mGestureDetector");
 		if (mGestureDetector.onTouchEvent(event))
 			return true;
 		return super.onTouchEvent(event);
@@ -116,12 +117,12 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	/* keyboard events: */
 	
 	public boolean onKeyDown(int keyCode, KeyEvent msg) {
-		Log.d(TAG, "onKeyDown(), keycode "+keyCode);
+		if(LOG) Log.d(TAG, "onKeyDown(), keycode "+keyCode);
 		return false;
 	}
 	
 	public boolean onKeyUp(int keyCode, KeyEvent msg) {
-		Log.d(TAG, "onKeyUp(), keycode "+keyCode);
+		if(LOG) Log.d(TAG, "onKeyUp(), keycode "+keyCode);
 		return false;
 	}
 	
@@ -136,7 +137,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	@Override
 	public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
 			float velocityY) {
-		Log.d(TAG, "onFling(): notifying ViewThread");
+		if(LOG) Log.d(TAG, "onFling(): notifying ViewThread");
 		mThread.mScroller.fling(0, 0, -(int) velocityX, -(int) velocityY, -4096, 4096, -4096, 4096);
 		mThread.triggerRepaint();
 		return true;
@@ -144,13 +145,13 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 
 	@Override
 	public void onLongPress(MotionEvent e) {
-		Log.d(TAG, "onLongPress(): ignoring!");
+		if(LOG) Log.d(TAG, "onLongPress(): ignoring!");
 	}
 
 	@Override
 	public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
 			float distanceY) {
-		Log.d(TAG, "onScroll(), distance vector: "+distanceX+","+distanceY);
+		if(LOG) Log.d(TAG, "onScroll(), distance vector: "+distanceX+","+distanceY);
 		mDocument.offset((int) distanceX, (int) distanceY, true);
 		mThread.triggerRepaint();
 		return true;
@@ -158,7 +159,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 
 	@Override
 	public void onShowPress(MotionEvent e) {
-		Log.d(TAG, "onShowPress(): ignoring!");
+		if(LOG) Log.d(TAG, "onShowPress(): ignoring!");
 	}
 
 	@Override
@@ -171,7 +172,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
-		Log.d(TAG, "surfaceCreated(): starting ViewThread");
+		if(LOG) Log.d(TAG, "surfaceCreated(): starting ViewThread");
 		mThread = new DroidReaderViewThread(holder, mContext, mDocument);
 		mThread.start();
 	}
@@ -179,13 +180,13 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width,
 			int height) {
-		Log.d(TAG, "surfaceChanged(): size "+width+"x"+height);
+		if(LOG) Log.d(TAG, "surfaceChanged(): size "+width+"x"+height);
 		mDocument.startRendering(width, height);
 	}
 	
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
-		Log.d(TAG, "surfaceDestroyed(): dying");
+		if(LOG) Log.d(TAG, "surfaceDestroyed(): dying");
 		mDocument.stopRendering();
 		boolean retry = true;
 		mThread.mRun = false;
@@ -203,7 +204,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 
 	@Override
 	public void onNewRenderedPixmap() {
-		Log.d(TAG, "new rendered pixmap was signalled");
+		if(LOG) Log.d(TAG, "new rendered pixmap was signalled");
 		mThread.triggerRepaint();
 	}
 }

@@ -42,6 +42,7 @@ public class DroidReaderFontProvider implements FontProvider {
 	 * Debug helper
 	 */
 	private static final String TAG = "DroidReaderFontProvider";
+	protected final static boolean LOG = false;
 	
 	/**
 	 * Our Activity
@@ -69,7 +70,7 @@ public class DroidReaderFontProvider implements FontProvider {
 	 */
 	@Override
 	public String getFontFile(String fontName, String collection, int flags) {
-		Log.d(TAG, "(File) Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
+		if(LOG) Log.d(TAG, "(File) Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
 		
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(mActivity);
 		
@@ -77,10 +78,10 @@ public class DroidReaderFontProvider implements FontProvider {
 		if(fontName.equals("CID-Substitute")) {
 			// it's a CID font, get font file name from Preferences:
 			String setting = "cid_font_" + collection + (((flags & 0x0001)==1) ? "_mincho" : "_gothic");
-			Log.d(TAG, "CID Font, reading setting "+setting);
+			if(LOG) Log.d(TAG, "CID Font, reading setting "+setting);
 			font = prefs.getString(setting,
 					mActivity.getResources().getString(R.string.prefs_cid_default_font));
-			Log.d(TAG, "got font "+font);
+			if(LOG) Log.d(TAG, "got font "+font);
 		}
 		
 		return font;
@@ -94,10 +95,10 @@ public class DroidReaderFontProvider implements FontProvider {
 		String fontFile;
 		InputStream inputStream;
 		
-		Log.d(TAG, "(Buffer) Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
+		if(LOG) Log.d(TAG, "(Buffer) Font: " + fontName + " Collection: " + collection + " Flags: " + flags);
 		
 		if(mFontCache.containsKey(fontName)) {
-			Log.d(TAG, "found in our cache.");
+			if(LOG) Log.d(TAG, "found in our cache.");
 			return mFontCache.get(fontName);
 		}
 		
@@ -132,16 +133,16 @@ public class DroidReaderFontProvider implements FontProvider {
 		} else if(fontName.equals("Chancery")) {
 			fontFile = "URWChanceryL-MediItal.cff";
 		} else {
-			Log.d(TAG, "no such font available as a buffer.");
+			if(LOG) Log.d(TAG, "no such font available as a buffer.");
 			return null;
 		}
 		
 		try {
-			Log.d(TAG, "opening asset: font/"+fontFile);
+			if(LOG) Log.d(TAG, "opening asset: font/"+fontFile);
 			inputStream = mActivity.getAssets().open("font/"+fontFile);
 		
 			bufferLength = inputStream.available();
-			Log.d(TAG, "reading asset to direct bytebuffer of length "+bufferLength);
+			if(LOG) Log.d(TAG, "reading asset to direct bytebuffer of length "+bufferLength);
 			
 			newBuffer = ByteBuffer.allocateDirect((int) bufferLength);
 			int len = 0;
@@ -159,9 +160,9 @@ public class DroidReaderFontProvider implements FontProvider {
 			mFontCache.put(fontName, newBuffer);
 			return newBuffer;
 		} catch(IOException e) {
-			Log.d(TAG, "error while loading font asset: "+e.getMessage());
+			if(LOG) Log.d(TAG, "error while loading font asset: "+e.getMessage());
 		} catch(Exception e) {
-			Log.d(TAG, "caught other exception: "+e.getMessage());
+			if(LOG) Log.d(TAG, "caught other exception: "+e.getMessage());
 		}
 		return null;
 	}
@@ -172,11 +173,11 @@ public class DroidReaderFontProvider implements FontProvider {
 		long bufferLength;
 		InputStream inputStream;
 		try {
-			Log.d(TAG, "opening asset: cmap/"+cmapName);
+			if(LOG) Log.d(TAG, "opening asset: cmap/"+cmapName);
 			inputStream = mActivity.getAssets().open("cmap/"+cmapName);
 		
 			bufferLength = inputStream.available();
-			Log.d(TAG, "reading asset to direct bytebuffer of length "+bufferLength);
+			if(LOG) Log.d(TAG, "reading asset to direct bytebuffer of length "+bufferLength);
 			
 			newBuffer = ByteBuffer.allocateDirect((int) bufferLength);
 			int len = 0;
@@ -191,9 +192,9 @@ public class DroidReaderFontProvider implements FontProvider {
 			inputStream.close();
 			return newBuffer;
 		} catch(IOException e) {
-			Log.d(TAG, "error while loading cmap asset: "+e.getMessage());
+			if(LOG) Log.d(TAG, "error while loading cmap asset: "+e.getMessage());
 		} catch(Exception e) {
-			Log.d(TAG, "caught other exception: "+e.getMessage());
+			if(LOG) Log.d(TAG, "caught other exception: "+e.getMessage());
 		}
 		return null;
 	}

@@ -25,6 +25,7 @@ public class DroidReaderDocument {
 	 */
 	class RenderThread extends Thread {
 		static final String TAG = "DroidReaderRenderThread";
+		protected final static boolean LOG = false;
 		/**
 		 * Thread state keeper
 		 */
@@ -32,7 +33,7 @@ public class DroidReaderDocument {
 		long mLazyStart = 0;
 		
 		public void newRenderJob(long lazyStart) {
-			Log.d(TAG, "got a new render job");
+			if(LOG) Log.d(TAG, "got a new render job");
 			// new job, so set the queue entrance's data:
 			mLazyStart = lazyStart;
 			// wake up the thread:
@@ -45,15 +46,15 @@ public class DroidReaderDocument {
 		@Override
 		public void run() {
 			while (mRun) {
-				Log.d(TAG, "starting loop");
+				if(LOG) Log.d(TAG, "starting loop");
 				
 				try {
 					// no new job, old job properly done,
 					// so we have nothing to do...
-					Log.d(TAG, "RenderThread going to sleep");
+					if(LOG) Log.d(TAG, "RenderThread going to sleep");
 					Thread.sleep(3600000);
 				} catch (InterruptedException e) {
-					Log.d(TAG, "RenderThread woken up");
+					if(LOG) Log.d(TAG, "RenderThread woken up");
 				}
 				
 				if(mRun) {
@@ -71,7 +72,7 @@ public class DroidReaderDocument {
 				}
 				
 				if(mRun) {
-					Log.d(TAG, "now rendering the current render job");
+					if(LOG) Log.d(TAG, "now rendering the current render job");
 					synchronized(mDocumentLock) {
 						if(mDocument.mHandle != 0 && mPage.mHandle != 0) {
 							if(mMetadataDirty) {
@@ -79,7 +80,7 @@ public class DroidReaderDocument {
 							}
 							calcCenteredViewBox();
 							try {
-								Log.d(TAG, "now rendering: "+mViewBox.toShortString());
+								if(LOG) Log.d(TAG, "now rendering: "+mViewBox.toShortString());
 								int newView = (mCurrentView + 1) % DroidReaderDocument.BUFFERS;
 								mViews[newView].render(mDocument, mPage, mViewBox, mPageMatrix);
 								mCurrentView = newView;
@@ -90,14 +91,15 @@ public class DroidReaderDocument {
 						mHavePixmap = true;
 					}
 					
-					Log.d(TAG, "now alerting the RenderListener");
+					if(LOG) Log.d(TAG, "now alerting the RenderListener");
 					mRenderListener.onNewRenderedPixmap();
 				}
 			}
-			Log.d(TAG, "shutting down.");
+			if(LOG) Log.d(TAG, "shutting down.");
 		}
 	}
 	static final String TAG = "DroidReaderDocument";
+	protected final static boolean LOG = false;
 	/**
 	 * Constant: Zoom to fit page
 	 */
@@ -162,7 +164,7 @@ public class DroidReaderDocument {
 	void open(String filename, String password, int pageNo, int offsetX, int offsetY) 
 	throws PasswordNeededException, WrongPasswordException, CannotRepairException, CannotDecryptXrefException, PageLoadException
 	{
-		Log.d(TAG, "opening document: "+filename);
+		if(LOG) Log.d(TAG, "opening document: "+filename);
 		synchronized(mDocumentLock) {
 			mPage.close();
 			mDocument.open(filename, password);
@@ -178,7 +180,7 @@ public class DroidReaderDocument {
 	void openPage(int no, boolean isRelative)
 	throws PageLoadException
 	{
-		Log.d(TAG, "opening page "+(isRelative?"(rel) ":"(abs) ")+no);
+		if(LOG) Log.d(TAG, "opening page "+(isRelative?"(rel) ":"(abs) ")+no);
 		synchronized(mDocumentLock) {
 			int realPageNo = ((isRelative ? mPage.no : 0) + no);
 			if(!isRelative && (realPageNo == PAGE_LAST))
@@ -229,7 +231,7 @@ public class DroidReaderDocument {
 	}
 	
 	void setDpi(int x, int y) {
-		Log.d(TAG, "setDpi: "+x+","+y);
+		if(LOG) Log.d(TAG, "setDpi: "+x+","+y);
 		mDpiX = x;
 		mDpiY = y;
 		mMetadataDirty = true;
@@ -237,7 +239,7 @@ public class DroidReaderDocument {
 	}
 	
 	void setTileMax(int x, int y) {
-		Log.d(TAG, "setTileMax: "+x+","+y);
+		if(LOG) Log.d(TAG, "setTileMax: "+x+","+y);
 		mTileMaxX = x;
 		mTileMaxY = y;
 		mMetadataDirty = true;
@@ -245,21 +247,21 @@ public class DroidReaderDocument {
 	}
 	
 	void setRotation(int degrees, boolean isRelative) {
-		Log.d(TAG, "setRotation: "+(isRelative?"(rel) ":"(abs) ")+degrees+"°");
+		if(LOG) Log.d(TAG, "setRotation: "+(isRelative?"(rel) ":"(abs) ")+degrees+"°");
 		mRotation = ((isRelative ? mRotation : 0) + degrees + 360) % 360;
 		mMetadataDirty = true;
 		render(false);
 	}
 	
 	void setZoom(float zoom, boolean isRelative) {
-		Log.d(TAG, "setZoom: "+(isRelative?"(rel) ":"(abs) ")+zoom);
+		if(LOG) Log.d(TAG, "setZoom: "+(isRelative?"(rel) ":"(abs) ")+zoom);
 		mZoom = (isRelative ? mZoom : 1) * zoom;
 		mMetadataDirty = true;
 		render(false);
 	}
 	
 	void offset(int x, int y, boolean isRelative) {
-		Log.d(TAG, "offset: "+(isRelative?"(rel) ":"(abs) ")+x+","+y);
+		if(LOG) Log.d(TAG, "offset: "+(isRelative?"(rel) ":"(abs) ")+x+","+y);
 		
 		if(mMetadataDirty)
 			calcPageMetadata();
@@ -279,7 +281,7 @@ public class DroidReaderDocument {
 	}
 	
 	void startRendering(int displaySizeX, int displaySizeY) {
-		Log.d(TAG, "startRendering");
+		if(LOG) Log.d(TAG, "startRendering");
 		mDisplaySizeX = displaySizeX;
 		mDisplaySizeY = displaySizeY;
 		mMetadataDirty = true;
@@ -288,12 +290,12 @@ public class DroidReaderDocument {
 	}
 	
 	void stopRendering() {
-		Log.d(TAG, "stopRendering");
+		if(LOG) Log.d(TAG, "stopRendering");
 		mDoRender = false;
 	}
 	
 	private void calcPageMetadata() {
-		Log.d(TAG, "calcPageMetadata()");
+		if(LOG) Log.d(TAG, "calcPageMetadata()");
 		float zoomX = mZoom * mDpiX / 72;
 		float zoomY = mZoom * mDpiY / 72;
 		float pageHeight = mPage.mMediabox[3]-mPage.mMediabox[1];
@@ -355,7 +357,7 @@ public class DroidReaderDocument {
 		}
 		
 		mMetadataDirty = false;
-		Log.d(TAG, "calculated new display metadata");
+		if(LOG) Log.d(TAG, "calculated new display metadata");
 	}
 	
 	private boolean withinViewBox() {
@@ -377,7 +379,7 @@ public class DroidReaderDocument {
 			offsetX = 0;
 		if(offsetY < 0)
 			offsetY = 0;
-		Log.d(TAG, "calcCenteredViewBox: new offsets "+offsetX+","+offsetY);
+		if(LOG) Log.d(TAG, "calcCenteredViewBox: new offsets "+offsetX+","+offsetY);
 		mViewBox.set(offsetX, offsetY, 
 				((mPageSizeX <= mTileMaxX)?mPageSizeX:(offsetX+mTileMaxX)),
 				((mPageSizeY <= mTileMaxY)?mPageSizeY:(offsetY+mTileMaxY)));
