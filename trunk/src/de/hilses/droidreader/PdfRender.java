@@ -134,36 +134,6 @@ final class PdfRender {
 	static void setFontProvider(FontProvider newProvider) {
 		fontProvider = newProvider;
 	}
-	
-	/**
-	 * Helper method for converting a Rect into an int[4]
-	 * @param viewbox the Rect to convert
-	 * @return int[4] with the left, top, right, bottom values
-	 */
-	static int[] getBox(Rect viewbox) {
-		int[] rect = { viewbox.left, viewbox.top,
-				viewbox.right, viewbox.bottom };
-		return rect;
-	}
-	
-	/**
-	 * Helper method for converting a Matrix into a float[6], just
-	 * as MuPDF defines it's matrizes
-	 * @param matrix the Matrix to convert
-	 * @return float[6] with the left two rows of the matrix
-	 */
-	static float[] getMatrix(Matrix matrix) {
-		float[] matrixSource = {
-				0, 0, 0,
-				0, 0, 0,
-				0, 0, 0   };
-		matrix.getValues(matrixSource);
-		float[] matrixArr = {
-				matrixSource[0], matrixSource[3],
-				matrixSource[1], matrixSource[4],
-				matrixSource[2], matrixSource[5]};
-		return matrixArr;
-	}
 }
 
 class CannotRepairException extends Exception {
@@ -202,13 +172,13 @@ class PdfDocument {
 	/**
 	 * backend sets this to the number of pages
 	 */
-	public int pagecount;
+	public int pagecount = 0;
 	
 	/**
 	 * this will be used to store a C Pointer (ick!) to the
 	 * structure holding our references in the native code
 	 */
-	protected long mHandle = -1;
+	protected long mHandle = 0;
 	
 	/**
 	 * will open a PDF document
@@ -231,13 +201,15 @@ class PdfDocument {
 	 * @param filename the PDF file
 	 * @param password the password to use for opening
 	 */
-	public PdfDocument(String filename, String password)
-		throws
-			PasswordNeededException, 
-			WrongPasswordException,
-			CannotRepairException,
-			CannotDecryptXrefException
+	public void open(String filename, String password)
+	throws
+		PasswordNeededException, 
+		WrongPasswordException,
+		CannotRepairException,
+		CannotDecryptXrefException
 	{
+		if(mHandle != 0)
+			this.close();
 		mHandle = this.nativeOpen(
 				PdfRender.fitzMemory, filename, password);
 	}
@@ -252,10 +224,11 @@ class PdfDocument {
 	 * this cleans up the memory used by this document. The document
 	 * cannot be used after calling this!
 	 */
-	public void done() {
+	public void close() {
 		if(mHandle != 0) {
 			this.nativeClose(mHandle);
 			mHandle = 0;
+			pagecount = 0;
 		}
 	}
 	
@@ -263,17 +236,7 @@ class PdfDocument {
 	 * destructor, cleans up memory
 	 */
 	public void finalize() {
-		this.done();
-	}
-	
-	/**
-	 * convenience function that instantiates a new PdfPage for a given page number
-	 * within the current document
-	 * @param page the page number (page numbers starting at 1!)
-	 * @return the resulting PdfPage object
-	 */
-	public PdfPage openPage(int page) throws PageLoadException {
-		return new PdfPage(this, page);
+		this.close();
 	}
 }
 
@@ -293,10 +256,6 @@ class PdfPage {
 	 * the MediaBox for the page, still as float[4]
 	 */
 	protected float[] mMediabox = {0, 0, 0, 0};
-	/**
-	 * a reference to the PdfDocument this page belongs to
-	 */
-	protected PdfDocument mDoc;
 
 	/**
 	 * this will be used to store a C Pointer (ick!) to the
@@ -319,12 +278,13 @@ class PdfPage {
 	 * @param doc the PdfDocument
 	 * @param no the number of the page (starting at 1) to open
 	 */
-	public PdfPage(PdfDocument doc, int no)
+	public void open(PdfDocument doc, int no)
 			throws PageLoadException
 	{
-		mDoc = doc;
+		if(mHandle != 0)
+			this.close();
 		this.no = no;
-		mHandle = this.nativeOpenPage(mDoc.mHandle, mMediabox, no);
+		mHandle = this.nativeOpenPage(doc.mHandle, mMediabox, no);
 	}
 	
 	/**
@@ -336,10 +296,11 @@ class PdfPage {
 	/**
 	 * clean up memory. Note that the object must not be used afterwards!
 	 */
-	public void done() {
+	public void close() {
 		if(mHandle != 0) {
 			this.nativeClosePage(mHandle);
 			mHandle = 0;
+			no = 0;
 		}
 	}
 	
@@ -347,7 +308,7 @@ class PdfPage {
 	 * destructor caring for cleaning up memory
 	 */
 	public void finalize() {
-		this.done();
+		this.close();
 	}
 	
 	/**
@@ -366,8 +327,17 @@ class PdfView {
 	/**
 	 * the pixmap we will render to
 	 */
-	public int[] buf;
+	public int[] mBuf;
+	
+	public final Rect mViewBox = new Rect();
 
+	private int[] mRect = { 0, 0, 0, 0 };
+	private float[] mMatrixSource = {
+			0, 0, 0,
+			0, 0, 0,
+			0, 0, 0   };
+	private float[] mMatrix = { 0, 0, 0, 0, 0, 0 };
+	
 	/**
 	 * Call native code to render part of a page to a buffer
 	 * @param dochandle the handle of the document for which we render
@@ -387,15 +357,30 @@ class PdfView {
 	 * @param viewbox the excerpt Rect that we should render (coordinates after applying the matrix)
 	 * @param matrix the Matrix used for rendering
 	 */
-	public void render(PdfPage page, Rect viewbox, Matrix matrix) 
+	public void render(PdfDocument doc, PdfPage page, Rect viewbox, Matrix matrix) 
 			throws PageRenderException
 	{
 		int size = viewbox.width() * viewbox.height()
 				* ((PdfRender.bytesPerPixel * 8) / 32);
-		if((buf == null) || (buf.length != size))
-			buf = new int[size];
+		if((mBuf == null) || (mBuf.length != size))
+			mBuf = new int[size];
+		
+		mRect[0] = viewbox.left;
+		mRect[1] = viewbox.top;
+		mRect[2] = viewbox.right;
+		mRect[3] = viewbox.bottom;
+		
+		matrix.getValues(mMatrixSource);
+		mMatrix[0] = mMatrixSource[0];
+		mMatrix[1] = mMatrixSource[3];
+		mMatrix[2] = mMatrixSource[1];
+		mMatrix[3] = mMatrixSource[4];
+		mMatrix[4] = mMatrixSource[2];
+		mMatrix[5] = mMatrixSource[5];
+
 		this.nativeCreateView(
-				page.mDoc.mHandle, page.mHandle,
-				PdfRender.getBox(viewbox), PdfRender.getMatrix(matrix), buf);
+				doc.mHandle, page.mHandle,
+				mRect, mMatrix, mBuf);
+		mViewBox.set(viewbox);
 	}
 }

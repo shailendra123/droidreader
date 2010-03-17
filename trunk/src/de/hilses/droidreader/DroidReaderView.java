@@ -46,26 +46,12 @@ import android.view.SurfaceView;
  * deal with the methods it provides itself.
  */
 public class DroidReaderView extends SurfaceView
-implements OnGestureListener, SurfaceHolder.Callback {
+implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.RenderListener {
 	/**
 	 * Debug helper
 	 */
 	protected final static String TAG = "DroidReaderView";
 
-	/**
-	 * Constant: Zoom to fit page
-	 */
-	protected static final int ZOOM_FIT = -1;
-
-	/**
-	 * Constant: Zoom to fit page width
-	 */
-	protected static final int ZOOM_FIT_WIDTH = -2;
-
-	/**
-	 * Constant: Zoom to fit page height
-	 */
-	protected static final int ZOOM_FIT_HEIGHT = -3;
 
 	/**
 	 * our view thread which does the drawing
@@ -87,110 +73,26 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	 */
 	protected final SurfaceHolder mSurfaceHolder;
 	
-	/**
-	 * specifies the Zoom factor
-	 */
-	protected float mZoom;
-	/**
-	 * specifies the rotation in degrees
-	 */
-	protected int mRotation;
-	/**
-	 * horizontal DPI of our display
-	 */
-	protected int mDpiX;
-	/**
-	 * vertival DPI of our display
-	 */
-	protected int mDpiY;
-	
-	/**
-	 * The PdfDocument, if loaded
-	 */
-	protected PdfDocument mDocument;
-
-	/**
-	 * the page number we're rendering
-	 */
-	protected int mPageNo;
-	
-	/**
-	 * Maximum width of a rendered tile
-	 */
-	private final int mTileMaxX;
-	/**
-	 * Maximum height of a rendered tile
-	 */
-	private final int mTileMaxY;
+	protected final DroidReaderDocument mDocument;
 	
 	/**
 	 * constructs a new View
 	 * @param context Context for the View
 	 * @param attrs attributes (may be null)
 	 */
-	public DroidReaderView(final Context context, AttributeSet attrs,
-			int tileMaxX, int tileMaxY) {
+	public DroidReaderView(final Context context, AttributeSet attrs, DroidReaderDocument document) {
 		super(context, attrs);
 		
 		mContext = context;
 		mSurfaceHolder = getHolder();
+		mDocument = document;
+		mDocument.mRenderListener = this;
 
 		// tell the SurfaceHolder to inform this thread on
 		// changes to the surface
 		mSurfaceHolder.addCallback(this);
 		
-		mTileMaxX = tileMaxX;
-		mTileMaxY = tileMaxY;
-		
 		mGestureDetector = new GestureDetector(this);
-	}
-	/**
-	 * to be called in order to open a new page
-	 * @param page PdfPage instance that we should show
-	 * @param zoom Zoom (100% == 1.0)
-	 * @param rotation Rotation in degrees
-	 * @param dpiX Display's horizontal DPI
-	 * @param dpiY Display's vertical DPI
-	 */
-	public void openPage(PdfDocument doc, int pageno,
-			float zoom, int rotation, int dpiX, int dpiY) {
-		closePage();
-		mZoom = zoom;
-		mRotation = rotation;
-		mDpiX = dpiX;
-		mDpiY = dpiY;
-		mDocument = doc;
-		mPageNo = pageno;
-		try {
-			mThread.openPage(mDocument, mPageNo, mZoom, mRotation, mDpiX, mDpiY);
-		} catch(NullPointerException e) {
-			Log.d(TAG, "our ViewThread is not alive...");
-		}
-	}
-	
-	/**
-	 * close the currently opened page, go to no document state.
-	 * to be called externally
-	 */
-	public void closePage() {
-		try {
-			mThread.closePage();
-		} catch(NullPointerException e) {
-			Log.e(TAG, "our ViewThread died!");
-		}
-	}
-	
-	/**
-	 * close the current document: free resources
-	 */
-	public void closeDoc() {
-		closePage();
-		try {
-			mDocument.done();
-			mDocument = null;
-		} catch(NullPointerException e) {
-			// no document to drop.
-		}
 	}
 
 	/* event listeners: */
@@ -198,11 +100,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	@Override
 	public boolean onTrackballEvent(MotionEvent event) {
 		Log.d(TAG, "onTouchEvent(): notifying ViewThread");
-		try {
-			return mThread.doScroll(null, null, event.getX() * 20, event.getY() * 20);
-		} catch(NullPointerException e) {
-			return false;
-		}
+		mDocument.offset((int) event.getX() * 20, (int) event.getY() * 20, true);
+		mThread.triggerRepaint();
+		return true;
 	}
 	
 	@Override
@@ -216,10 +116,12 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	/* keyboard events: */
 	
 	public boolean onKeyDown(int keyCode, KeyEvent msg) {
+		Log.d(TAG, "onKeyDown(), keycode "+keyCode);
 		return false;
 	}
 	
 	public boolean onKeyUp(int keyCode, KeyEvent msg) {
+		Log.d(TAG, "onKeyUp(), keycode "+keyCode);
 		return false;
 	}
 	
@@ -235,11 +137,9 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
 			float velocityY) {
 		Log.d(TAG, "onFling(): notifying ViewThread");
-		try {
-			return mThread.doFling(e1, e2, velocityX, velocityY);
-		} catch(NullPointerException e) {
-			return false;
-		}
+		mThread.mScroller.fling(0, 0, -(int) velocityX, -(int) velocityY, -4096, 4096, -4096, 4096);
+		mThread.triggerRepaint();
+		return true;
 	}
 
 	@Override
@@ -250,11 +150,10 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	@Override
 	public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX,
 			float distanceY) {
-		try {
-			return mThread.doScroll(e1, e2, distanceX, distanceY);
-		} catch(NullPointerException e) {
-			return false;
-		}
+		Log.d(TAG, "onScroll(), distance vector: "+distanceX+","+distanceY);
+		mDocument.offset((int) distanceX, (int) distanceY, true);
+		mThread.triggerRepaint();
+		return true;
 	}
 
 	@Override
@@ -273,24 +172,21 @@ implements OnGestureListener, SurfaceHolder.Callback {
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		Log.d(TAG, "surfaceCreated(): starting ViewThread");
-		mThread = new DroidReaderViewThread(holder, mContext, mTileMaxX, mTileMaxY);
+		mThread = new DroidReaderViewThread(holder, mContext, mDocument);
 		mThread.start();
-		try {
-			mThread.openPage(mDocument, mPageNo, mZoom, mRotation, mDpiX, mDpiY);
-		} catch(NullPointerException e) {
-			Log.e(TAG, "error loading page");
-		}
 	}
 	
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width,
 			int height) {
-		mThread.surfaceChanged();
+		Log.d(TAG, "surfaceChanged(): size "+width+"x"+height);
+		mDocument.startRendering(width, height);
 	}
 	
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		Log.d(TAG, "surfaceDestroyed(): dying");
+		mDocument.stopRendering();
 		boolean retry = true;
 		mThread.mRun = false;
 		mThread.interrupt();
@@ -301,5 +197,13 @@ implements OnGestureListener, SurfaceHolder.Callback {
 			} catch (InterruptedException e) {
 			}
 		}
+	}
+	
+	/* render events */
+
+	@Override
+	public void onNewRenderedPixmap() {
+		Log.d(TAG, "new rendered pixmap was signalled");
+		mThread.triggerRepaint();
 	}
 }
