@@ -129,14 +129,22 @@ public class DroidReaderActivity extends Activity {
 		if(intent.getData() != null) {
 			// yep:
 			mFilename = intent.getData().toString();
-			if (mFilename.startsWith("file://")) {
+			if(mFilename.startsWith("file://")) { 
 				mFilename = mFilename.substring(7);
-				// try to open with no password
-				mPassword = "";
-				openDocument();
+			} else if(mFilename.startsWith("/")) {
+				// raw filename
+			} else if(mFilename.startsWith("content://com.metago.astro.filesystem/")) {
+				// special case: ASTRO file manager
+				mFilename = mFilename.substring(37);
 			} else {
 				Toast.makeText(this, R.string.error_only_file_uris, 
 						Toast.LENGTH_SHORT).show();
+				mFilename = null;
+			}
+			if(mFilename!=null) {
+				// try to open with no password
+				mPassword = "";
+				openDocument();
 			}
 		} else if(savedInstanceState != null) {
 			mFilename = savedInstanceState.getString("filename");
