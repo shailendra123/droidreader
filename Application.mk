@@ -23,7 +23,7 @@
 # information for the Android Native Development Kit (NDK):
 
 APP_PROJECT_PATH := $(call my-dir)
-APP_MODULES      := mupdf pdfrender
+APP_MODULES      := jpeg openjpeg jbig2dec freetype mupdf pdfrender
 
 # uncomment this to keep debug information unstripped:
 #APP_OPTIM        := debug
