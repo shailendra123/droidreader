@@ -81,9 +81,7 @@ public class DroidReaderDocument {
 							calcCenteredViewBox();
 							try {
 								if(LOG) Log.d(TAG, "now rendering: "+mViewBox.toShortString());
-								int newView = (mCurrentView + 1) % DroidReaderDocument.BUFFERS;
-								mViews[newView].render(mDocument, mPage, mViewBox, mPageMatrix);
-								mCurrentView = newView;
+								mView.render(mDocument, mPage, mViewBox, mPageMatrix);
 							} catch (PageRenderException e) {
 								// TODO: error handling
 							}
@@ -119,14 +117,11 @@ public class DroidReaderDocument {
 	
 	protected static final int PAGE_LAST = -1;
 
-	protected final RenderThread mRenderThread = new RenderThread();
-	
-	static final int BUFFERS = 1;
+	protected RenderThread mRenderThread = null;
 	
 	final PdfDocument mDocument = new PdfDocument();
 	final PdfPage mPage = new PdfPage();
-	int mCurrentView = 0;
-	final PdfView mViews[] = { new PdfView(), new PdfView() };
+	final PdfView mView = new PdfView();
 	
 	boolean mMetadataDirty = false;
 	boolean mHavePixmap = false;
@@ -156,10 +151,6 @@ public class DroidReaderDocument {
 	RenderListener mRenderListener = new DummyRenderListener();
 	
 	final Object mDocumentLock = new Object();
-	
-	public DroidReaderDocument() {
-		mRenderThread.start();
-	}
 	
 	void open(String filename, String password, int pageNo, int offsetX, int offsetY) 
 	throws PasswordNeededException, WrongPasswordException, CannotRepairException, CannotDecryptXrefException, PageLoadException
@@ -217,7 +208,7 @@ public class DroidReaderDocument {
 	}
 	
 	void render(long lazyStart) {
-		if(mDoRender) {
+		if(mDoRender && (mRenderThread != null)) {
 			mRenderThread.newRenderJob(lazyStart);
 		}
 	}
@@ -286,12 +277,32 @@ public class DroidReaderDocument {
 		mDisplaySizeY = displaySizeY;
 		mMetadataDirty = true;
 		mDoRender = true;
+		if(mRenderThread == null)
+			mRenderThread = new RenderThread();
+		
+		mRenderThread.start();
+		
 		render(false);
 	}
 	
 	void stopRendering() {
+		boolean retry = true;
+		
 		if(LOG) Log.d(TAG, "stopRendering");
 		mDoRender = false;
+		
+		if(mRenderThread != null) {
+			mRenderThread.mRun = false;
+			mRenderThread.interrupt();
+			while (retry) {
+				try {
+					mRenderThread.join();
+					retry = false;
+				} catch (InterruptedException e) {
+				}
+			}
+			mRenderThread = null;
+		}
 	}
 	
 	private void calcPageMetadata() {
@@ -383,5 +394,13 @@ public class DroidReaderDocument {
 		mViewBox.set(offsetX, offsetY, 
 				((mPageSizeX <= mTileMaxX)?mPageSizeX:(offsetX+mTileMaxX)),
 				((mPageSizeY <= mTileMaxY)?mPageSizeY:(offsetY+mTileMaxY)));
+	}
+
+	public void closeDocument() {
+		stopRendering();
+		synchronized(mDocumentLock) {
+			mPage.close();
+			mDocument.close();
+		}
 	}
 }
