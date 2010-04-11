@@ -15,15 +15,14 @@ enum
 
 static inline void pdflog(int tag, char *name, char *fmt, va_list ap)
 {
-	static int flags = 0;
+#ifdef MUPDF_DEBUG
+	static int flags = PDF_LXREF | PDF_LRSRC | PDF_LFONT | PDF_LIMAGE | PDF_LSHADE | PDF_LPAGE;
 	static char buffer[1024] = { 0 };
-
-	if (!(flags & tag))
-		return;
 
 	vsnprintf(buffer, sizeof buffer, fmt, ap);
 
 	__android_log_print(ANDROID_LOG_DEBUG, "MuPDF", "[%s]: %s", name, buffer);
+#endif
 }
 
 void pdf_logxref(char *fmt, ...)
