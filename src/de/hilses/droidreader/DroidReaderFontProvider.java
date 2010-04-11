@@ -42,7 +42,7 @@ public class DroidReaderFontProvider implements FontProvider {
 	 * Debug helper
 	 */
 	private static final String TAG = "DroidReaderFontProvider";
-	protected final static boolean LOG = false;
+	protected final static boolean LOG = true;
 	
 	/**
 	 * Our Activity
@@ -146,23 +146,20 @@ public class DroidReaderFontProvider implements FontProvider {
 			
 			newBuffer = ByteBuffer.allocateDirect((int) bufferLength);
 			int len = 0;
-			int where = 0;
+			byte[] buffer = new byte[4096];
 			do {
-				byte[] buffer = new byte[4096];
-				where+=len;
 				len = inputStream.read(buffer);
-				if((len != -1) && (where+len < bufferLength)) {
+				if((len != -1) && (newBuffer.position()+len <= bufferLength))
 					newBuffer.put(buffer, 0, len);
-				}
 			} while(len != -1);
 			inputStream.close();
 			
 			mFontCache.put(fontName, newBuffer);
 			return newBuffer;
 		} catch(IOException e) {
-			if(LOG) Log.d(TAG, "error while loading font asset: "+e.getMessage());
+			if(LOG) Log.e(TAG, "error while loading font asset: "+e.getMessage());
 		} catch(Exception e) {
-			if(LOG) Log.d(TAG, "caught other exception: "+e.getMessage());
+			if(LOG) Log.e(TAG, "caught other exception: "+e.getMessage());
 		}
 		return null;
 	}
@@ -181,20 +178,18 @@ public class DroidReaderFontProvider implements FontProvider {
 			
 			newBuffer = ByteBuffer.allocateDirect((int) bufferLength);
 			int len = 0;
-			int where = 0;
 			byte[] buffer = new byte[4096];
 			do {
-				where+=len;
 				len = inputStream.read(buffer);
-				if((len != -1) && (where+len <= bufferLength))
+				if((len != -1) && (newBuffer.position()+len <= bufferLength))
 					newBuffer.put(buffer, 0, len);
 			} while(len != -1);
 			inputStream.close();
 			return newBuffer;
 		} catch(IOException e) {
-			if(LOG) Log.d(TAG, "error while loading cmap asset: "+e.getMessage());
+			if(LOG) Log.e(TAG, "error while loading cmap asset: "+e.getMessage());
 		} catch(Exception e) {
-			if(LOG) Log.d(TAG, "caught other exception: "+e.getMessage());
+			if(LOG) Log.e(TAG, "caught other exception: "+e.getMessage());
 		}
 		return null;
 	}
