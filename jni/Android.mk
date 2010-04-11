@@ -241,7 +241,14 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/mupdf/mupdf \
 	$(LOCAL_PATH)
 
-LOCAL_CFLAGS := -Drestrict= -DEXTERNALFONTS -DHAVE_OPENJPEG=yes -DHAVE_JBIG2DEC=yes -DMUPDF_DEBUG=yes
+LOCAL_CFLAGS := -Drestrict= -DEXTERNALFONTS
+
+# support for OpenJPEG / JBIG2dec:
+LOCAL_CFLAGS += -DHAVE_OPENJPEG=yes
+LOCAL_CFLAGS += -DHAVE_JBIG2DEC=yes
+
+# debugging:
+#LOCAL_CFLAGS += -DMUPDF_DEBUG=yes
 
 LOCAL_SRC_FILES := \
 	mupdf/mupdf/pdf_crypt.c \
@@ -322,8 +329,6 @@ LOCAL_SRC_FILES := \
 	mupdf/fitz/filt_faxd.c \
 	mupdf/fitz/filt_faxdtab.c \
 	mupdf/fitz/filt_flate.c \
-	mupdf/fitz/filt_jbig2d.c \
-	mupdf/fitz/filt_jpxd.c \
 	mupdf/fitz/filt_lzwd.c \
 	mupdf/fitz/filt_predict.c \
 	mupdf/fitz/node_toxml.c \
@@ -337,6 +342,11 @@ LOCAL_SRC_FILES := \
 	mupdf/fitz/res_image.c \
 	mupdf/fitz/res_shade.c
 
+# support for OpenJPEG / JBIG2dec:
+LOCAL_SRC_FILES += \
+	mupdf/fitz/filt_jbig2d.c \
+	mupdf/fitz/filt_jpxd.c
+
 # uses libz, which is officially supported for NDK API
 LOCAL_LDLIBS := -lz -llog
 LOCAL_STATIC_LIBRARIES := freetype jpeg openjpeg jbig2dec
@@ -349,7 +359,8 @@ include $(CLEAR_VARS)
 # from the static archive we compiled above
 
 LOCAL_MODULE    := pdfrender
-LOCAL_CFLAGS	:= -DPDFRENDER_DEBUG=yes
+# debugging:
+#LOCAL_CFLAGS	:= -DPDFRENDER_DEBUG=yes
 LOCAL_SRC_FILES := \
 	pdfrender.c
 
