@@ -111,7 +111,11 @@ class DroidReaderViewThread extends Thread {
 				if(mScroller.computeScrollOffset()) {
 					if(LOG) Log.d(TAG, "new scroll offset");
 					doSleep = false;
+					int oldX = mDocument.mOffsetX;
+					int oldY = mDocument.mOffsetY;
 					mDocument.offset(mScroller.getCurrX(), mScroller.getCurrY(), true);
+					if((oldX == mDocument.mOffsetX) && (oldY == mDocument.mOffsetY))
+						mScroller.abortAnimation();
 				} else {
 					mScroller.abortAnimation();
 				}
@@ -122,7 +126,11 @@ class DroidReaderViewThread extends Thread {
 				try {
 					// nothing to do, wait for someone waking us up:
 					if(LOG) Log.d(TAG, "ViewThread going to sleep");
-					Thread.sleep(3600000);
+					// TODO: there's probably still a race-condition here between
+					// the check for pending interrupts and the sleep() which
+					// could lead to a not-handled repaint request:
+					if(!this.isInterrupted())
+						Thread.sleep(3600000);
 				} catch (InterruptedException e) {
 					if(LOG) Log.d(TAG, "ViewThread woken up");
 				}
