@@ -42,7 +42,7 @@ public class DroidReaderFontProvider implements FontProvider {
 	 * Debug helper
 	 */
 	private static final String TAG = "DroidReaderFontProvider";
-	protected final static boolean LOG = true;
+	protected final static boolean LOG = false;
 	
 	/**
 	 * Our Activity
