@@ -41,18 +41,18 @@ the Free Software Foundation, either version 3 of the License, or
 
 /* Debugging helper */
 
-/*
+#ifdef PDFRENDER_DEBUG
 #define DEBUG(args...) \
 	__android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
-*/
-#define DEBUG(args...) {}
-#define ERROR(args...) \
-	__android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
-/*
 #define INFO(args...) \
 	__android_log_print(ANDROID_LOG_INFO, "PdfRender", args)
-*/
+#else
+#define DEBUG(args...) {}
 #define INFO(args...) {}
+#endif
+
+#define ERROR(args...) \
+	__android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
 
 
 /* Exception classes */
