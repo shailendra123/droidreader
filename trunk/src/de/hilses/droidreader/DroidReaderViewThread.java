@@ -158,13 +158,13 @@ class DroidReaderViewThread extends Thread {
 				if(LOG) Log.d(TAG, "page loaded, rendering pixmap");
 				c.drawRect(0, 0, c.getWidth(), c.getHeight(), mEmptyPaint);
 				c.drawBitmap(
-						mDocument.mViews[mDocument.mCurrentView].mBuf,
+						mDocument.mView.mBuf,
 						0,
-						mDocument.mViews[mDocument.mCurrentView].mViewBox.width(),
-						-mDocument.mOffsetX + mDocument.mViews[mDocument.mCurrentView].mViewBox.left,
-						-mDocument.mOffsetY + mDocument.mViews[mDocument.mCurrentView].mViewBox.top,
-						mDocument.mViews[mDocument.mCurrentView].mViewBox.width(),
-						mDocument.mViews[mDocument.mCurrentView].mViewBox.height(),
+						mDocument.mView.mViewBox.width(),
+						-mDocument.mOffsetX + mDocument.mView.mViewBox.left,
+						-mDocument.mOffsetY + mDocument.mView.mViewBox.top,
+						mDocument.mView.mViewBox.width(),
+						mDocument.mView.mViewBox.height(),
 						false,
 						null);
 			} else {

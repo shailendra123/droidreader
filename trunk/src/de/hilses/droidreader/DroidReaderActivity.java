@@ -25,6 +25,7 @@ the Free Software Foundation, either version 3 of the License, or
 package de.hilses.droidreader;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
@@ -62,13 +63,14 @@ public class DroidReaderActivity extends Activity {
 	private static final int DIALOG_ABOUT = 2;
 	private static final int DIALOG_GOTO_PAGE = 3;
 
-	protected DroidReaderView mReaderView;
-	protected final DroidReaderDocument mDocument = new DroidReaderDocument();
+	protected DroidReaderView mReaderView = null;
+	protected DroidReaderDocument mDocument = null;
 	
 	private Button mButtonPrev = null;
 	private Button mButtonNext = null;
 	
 	private String mFilename;
+	private String mPassword;
 	
 	/** Called when the activity is first created. */
 	@Override
@@ -78,6 +80,9 @@ public class DroidReaderActivity extends Activity {
 		// first, show the EULA:
 		Eula.show(this);
 		
+		if(mDocument == null)
+			mDocument = new DroidReaderDocument();
+		
 		// Initialize the PdfRender engine
 		PdfRender.setFontProvider(new DroidReaderFontProvider(this));
 		
@@ -86,6 +91,7 @@ public class DroidReaderActivity extends Activity {
 		FrameLayout fl = new FrameLayout(this);
 
 		readPreferences();
+		
 		mReaderView = new DroidReaderView(this, null, mDocument);
 		
 		View navigationOverlay = getLayoutInflater().inflate(R.layout.navigationoverlay,
@@ -126,12 +132,48 @@ public class DroidReaderActivity extends Activity {
 			if (mFilename.startsWith("file://")) {
 				mFilename = mFilename.substring(7);
 				// try to open with no password
-				openDocument("");
+				mPassword = "";
+				openDocument();
 			} else {
 				Toast.makeText(this, R.string.error_only_file_uris, 
 						Toast.LENGTH_SHORT).show();
 			}
+		} else if(savedInstanceState != null) {
+			mFilename = savedInstanceState.getString("filename");
+			
+			if((new File(mFilename)).exists()) {
+				mPassword = savedInstanceState.getString("password");
+				mDocument.mZoom = savedInstanceState.getFloat("zoom");
+				mDocument.mRotation = savedInstanceState.getInt("rotation");
+				openDocument(savedInstanceState.getInt("page"),0,0);
+				mDocument.offset(
+						savedInstanceState.getInt("offsetX"),
+						savedInstanceState.getInt("offsetY"),
+						false);
+			}
+			savedInstanceState.clear();
 		}
+	}
+	
+	@Override
+	protected void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
+		if((mDocument != null) && mDocument.isPageLoaded()) {
+			outState.putFloat("zoom", mDocument.mZoom);
+			outState.putInt("rotation", mDocument.mRotation);
+			outState.putInt("page", mDocument.mPage.no);
+			outState.putInt("offsetX", mDocument.mOffsetX);
+			outState.putInt("offsetY", mDocument.mOffsetY);
+			outState.putString("password", mPassword);
+			outState.putString("filename", mFilename);
+		}
+	}
+	
+	@Override
+	protected void onDestroy() {
+		if(mDocument != null)
+			mDocument.closeDocument();
+		super.onDestroy();
 	}
 	
 	private void readPreferences() {
@@ -268,7 +310,8 @@ public class DroidReaderActivity extends Activity {
 					if (mFilename.startsWith("file://")) {
 						mFilename = mFilename.substring(7);
 					}
-					openDocument("");
+					mPassword = "";
+					openDocument();
 				}
 			}
 			break;
@@ -278,9 +321,9 @@ public class DroidReaderActivity extends Activity {
 		}
 	}
 	
-	protected void openDocument(String password) {
+	protected void openDocument(int pageNo, int offsetX, int offsetY) {
 		try {
-			mDocument.open(mFilename, password, 1, 0, 0);
+			mDocument.open(mFilename, mPassword, pageNo, offsetX, offsetY);
 			openPage(0, true);
 		} catch (PasswordNeededException e) {
 			showDialog(DIALOG_GET_PASSWORD);
@@ -291,6 +334,10 @@ public class DroidReaderActivity extends Activity {
 			Toast.makeText(this, R.string.error_opening_document, 
 					Toast.LENGTH_LONG).show();
 		}
+	}
+	
+	protected void openDocument() {
+		openDocument(1, 0, 0);
 	}
 	
 	protected void openPage(int no, boolean isRelative) {
@@ -332,8 +379,9 @@ public class DroidReaderActivity extends Activity {
 			builder.setPositiveButton(R.string.button_pwddialog_open,
 				new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int id) {
-						DroidReaderActivity.this.openDocument(
-							((EditText) ((AlertDialog) dialog).findViewById(R.id.input_password)).getText().toString());
+						DroidReaderActivity.this.mPassword = 
+							((EditText) ((AlertDialog) dialog).findViewById(R.id.input_password)).getText().toString();
+						DroidReaderActivity.this.openDocument();
 						dialog.dismiss();
 					}
 				});
