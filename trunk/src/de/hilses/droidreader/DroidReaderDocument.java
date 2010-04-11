@@ -367,7 +367,7 @@ public class DroidReaderDocument {
 			return false;
 		if(mIsScrollingY &&
 				(((mOffsetY + mDisplaySizeY) > mViewBox.bottom) ||
-				(mOffsetY < mViewBox.left)))
+				(mOffsetY < mViewBox.top)))
 			return false;
 		return true;
 	}
