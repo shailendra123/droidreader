@@ -39,6 +39,10 @@ In order to build DroidReader, you need:
 
 - source code of freetype2
 
+- source code of jbig2dec
+
+- source code of openjpeg
+
 - the Android Native Development Kit (NDK)
 
 - and of course the Android SDK.
@@ -61,6 +65,18 @@ When you have done this, do the following:
 - copy or symlink the freetype2 sources into the
 
   jni/freetype/
+
+  folder.
+
+- copy or symlink the jbig2dec sources into the
+
+  jni/jbig2dec/
+
+  folder.
+
+- copy or symlink the openjpeg sources into the
+
+  jni/openjpeg/
 
   folder.
 
