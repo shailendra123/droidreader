@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# This file builds the native-code library, then the apk, and then installs
+# the apk on a device (could be simulator) through adb. No device is specified,
+# so the assumption is that there is only one device present.
+
+rm -rf gen/de/hilses
+ant clean
+
+cd jni
+ndk-build || ( cd - ; exit )
+cd -
+
+ant debug || ( cd - ; exit )
+adb install -r bin/droidreader-debug.apk
+
+#ant release || ( cd - ; exit )
+#cd bin
+#echo "Signing apk..."
+#jarsigner -storepass Mark3Smith! -keystore ../RobAndroid.keystore droidreader-unsigned.apk RobAndroid
+#rm -f droidreader.apk
+#echo "Aligning zip file..."
+#zipalign 4 droidreader-unsigned.apk droidreader.apk
+#cd ..
+#~/projects/android-sdk-linux_x86/tools/adb install -r bin/droidreader.apk
+

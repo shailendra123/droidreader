@@ -65,6 +65,8 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := openjpeg
 
+LOCAL_ARM_MODE := arm
+
 # Homepage: http://www.openjpeg.org/
 # Original License: see openjpeg/license.txt
 # Original Copyrights:
@@ -93,7 +95,11 @@ LOCAL_SRC_FILES := \
 	openjpeg/libopenjpeg/t1.c \
 	openjpeg/libopenjpeg/t2.c \
 	openjpeg/libopenjpeg/tcd.c \
-	openjpeg/libopenjpeg/tgt.c
+	openjpeg/libopenjpeg/tgt.c \
+	openjpeg/libopenjpeg/opj_convert.c
+
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/openjpeg-overlay
 
 include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
@@ -155,6 +161,9 @@ LOCAL_SRC_FILES := \
 	jpeg/jerror.c \
 	jpeg/jmemmgr.c \
 	jpeg/jmemnobs.c
+
+LOCAL_C_INCLUDES := \
+	$(LOCAL_PATH)/jpeg-overlay
 
 include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
@@ -234,6 +243,7 @@ LOCAL_MODULE := mupdf
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/freetype/include \
 	$(LOCAL_PATH)/jpeg \
+	$(LOCAL_PATH)/jpeg-overlay \
 	$(LOCAL_PATH)/jbig2dec \
 	$(LOCAL_PATH)/openjpeg/libopenjpeg \
 	$(LOCAL_PATH)/mupdf/fitzdraw \
@@ -241,7 +251,9 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/mupdf/mupdf \
 	$(LOCAL_PATH)
 
-LOCAL_CFLAGS := -Drestrict= -DEXTERNALFONTS
+LOCAL_CFLAGS := -DARCH_ARM -DEXTERNALFONTS
+
+LOCAL_ARM_MODE := arm
 
 # support for OpenJPEG / JBIG2dec:
 LOCAL_CFLAGS += -DHAVE_OPENJPEG=yes
@@ -255,7 +267,6 @@ LOCAL_SRC_FILES := \
 	mupdf-overlay/mupdf/pdf_debug.c \
 	mupdf/mupdf/pdf_lex.c \
 	mupdf/mupdf/pdf_nametree.c \
-	mupdf/mupdf/pdf_open.c \
 	mupdf/mupdf/pdf_parse.c \
 	mupdf/mupdf/pdf_repair.c \
 	mupdf/mupdf/pdf_stream.c \
@@ -273,79 +284,62 @@ LOCAL_SRC_FILES := \
 	mupdf/mupdf/pdf_fontmtx.c \
 	mupdf-overlay/mupdf/pdf_fontfile.c \
 	mupdf/mupdf/pdf_function.c \
-	mupdf/mupdf/pdf_colorspace1.c \
-	mupdf/mupdf/pdf_colorspace2.c \
+	mupdf/mupdf/pdf_colorspace.c \
 	mupdf/mupdf/pdf_image.c \
 	mupdf/mupdf/pdf_pattern.c \
 	mupdf/mupdf/pdf_shade.c \
-	mupdf/mupdf/pdf_shade1.c \
-	mupdf/mupdf/pdf_shade4.c \
 	mupdf/mupdf/pdf_xobject.c \
 	mupdf/mupdf/pdf_build.c \
 	mupdf/mupdf/pdf_interpret.c \
 	mupdf/mupdf/pdf_page.c \
 	mupdf/mupdf/pdf_pagetree.c \
 	mupdf/mupdf/pdf_store.c \
-	mupdf/fitzdraw/glyphcache.c \
-	mupdf/fitzdraw/porterduff.c \
-	mupdf/fitzdraw/meshdraw.c \
-	mupdf/fitzdraw/imagedraw.c \
-	mupdf/fitzdraw/imageunpack.c \
-	mupdf/fitzdraw/imagescale.c \
-	mupdf/fitzdraw/pathscan.c \
-	mupdf/fitzdraw/pathfill.c \
-	mupdf/fitzdraw/pathstroke.c \
-	mupdf/fitzdraw/pixmap.c \
-	mupdf/fitzdraw/render.c \
-	mupdf/fitzdraw/blendmodes.c \
-	mupdf/fitz/base_cpudep.c \
+	mupdf/draw/archport.c \
+	mupdf/draw/glyphcache.c \
+	mupdf/draw/porterduff.c \
+	mupdf/draw/meshdraw.c \
+	mupdf/draw/imagedraw.c \
+	mupdf/draw/imageunpack.c \
+	mupdf/draw/imagescale.c \
+	mupdf/draw/imagesmooth.c \
+	mupdf/draw/pathscan.c \
+	mupdf/draw/pathfill.c \
+	mupdf/draw/pathstroke.c \
+	mupdf/draw/blendmodes.c \
 	mupdf-overlay/fitz/base_error.c \
+	mupdf/fitz/base_geometry.c \
 	mupdf/fitz/base_hash.c \
-	mupdf/fitz/base_matrix.c \
 	mupdf/fitz/base_memory.c \
-	mupdf/fitz/base_rect.c \
 	mupdf/fitz/base_string.c \
-	mupdf/fitz/base_unicode.c \
-	mupdf/fitz/util_getopt.c \
 	mupdf/fitz/crypt_aes.c \
 	mupdf/fitz/crypt_arc4.c \
-	mupdf/fitz/crypt_crc32.c \
 	mupdf/fitz/crypt_md5.c \
 	mupdf/fitz/obj_array.c \
 	mupdf/fitz/obj_dict.c \
-	mupdf/fitz/obj_parse.c \
 	mupdf/fitz/obj_print.c \
 	mupdf/fitz/obj_simple.c \
 	mupdf/fitz/stm_buffer.c \
-	mupdf/fitz/stm_filter.c \
 	mupdf/fitz/stm_open.c \
 	mupdf/fitz/stm_read.c \
-	mupdf/fitz/stm_misc.c \
-	mupdf/fitz/filt_pipeline.c \
 	mupdf/fitz/filt_basic.c \
-	mupdf/fitz/filt_arc4.c \
-	mupdf/fitz/filt_aesd.c \
 	mupdf/fitz/filt_dctd.c \
 	mupdf/fitz/filt_faxd.c \
-	mupdf/fitz/filt_faxdtab.c \
 	mupdf/fitz/filt_flate.c \
+	mupdf/fitz/filt_jbig2d.c \
+	mupdf/fitz/filt_jpxd.c \
 	mupdf/fitz/filt_lzwd.c \
 	mupdf/fitz/filt_predict.c \
-	mupdf/fitz/node_toxml.c \
-	mupdf/fitz/node_misc1.c \
-	mupdf/fitz/node_misc2.c \
-	mupdf/fitz/node_path.c \
-	mupdf/fitz/node_text.c \
-	mupdf/fitz/node_tree.c \
 	mupdf/fitz/res_colorspace.c \
 	mupdf/fitz/res_font.c \
-	mupdf/fitz/res_image.c \
-	mupdf/fitz/res_shade.c
-
-# support for OpenJPEG / JBIG2dec:
-LOCAL_SRC_FILES += \
-	mupdf/fitz/filt_jbig2d.c \
-	mupdf/fitz/filt_jpxd.c
+	mupdf/fitz/res_path.c \
+	mupdf/fitz/res_pixmap.c \
+	mupdf/fitz/res_shade.c \
+	mupdf/fitz/res_text.c \
+	mupdf/fitz/dev_bbox.c \
+	mupdf/fitz/dev_draw.c \
+	mupdf/fitz/dev_list.c \
+	mupdf/fitz/dev_null.c \
+	mupdf/fitz/dev_text.c
 
 # uses libz, which is officially supported for NDK API
 LOCAL_LDLIBS := -lz -llog
