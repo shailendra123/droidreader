@@ -147,7 +147,7 @@ pdf_loadsystemfont(pdf_fontdesc *font, char *fontname, char *collection)
 }
 
 fz_error
-pdf_loadembeddedfont(pdf_fontdesc *font, pdf_xref *xref, fz_obj *stmref)
+pdf_loadembeddedfont(pdf_fontdesc *fontdesc, pdf_xref *xref, fz_obj *stmref)
 {
 	fz_error error;
 	fz_buffer *buf;
@@ -156,19 +156,19 @@ pdf_loadembeddedfont(pdf_fontdesc *font, pdf_xref *xref, fz_obj *stmref)
 
 	error = pdf_loadstream(&buf, xref, fz_tonum(stmref), fz_togen(stmref));
 	if (error)
-		return fz_rethrow(error, "cannot load font stream");
+		return fz_rethrow(error, "cannot load font stream (%d %d R)", fz_tonum(stmref), fz_togen(stmref));
 
-	error = fz_newfontfrombuffer(&font->font, buf->rp, buf->wp - buf->rp, 0);
+	error = fz_newfontfrombuffer(&fontdesc->font, buf->data, buf->len, 0);
 	if (error)
 	{
 		fz_dropbuffer(buf);
 		return fz_rethrow(error, "cannot load embedded font (%d %d R)", fz_tonum(stmref), fz_togen(stmref));
 	}
 
-	font->buffer = buf->rp; /* save the buffer so we can free it later */
+	fontdesc->buffer = buf->data; /* save the buffer so we can free it later */
 	fz_free(buf); /* only free the fz_buffer struct, not the contained data */
 
-	font->isembedded = 1;
+	fontdesc->isembedded = 1;
 
 	return fz_okay;
 }

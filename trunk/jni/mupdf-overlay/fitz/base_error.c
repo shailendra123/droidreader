@@ -1,4 +1,4 @@
-#include "fitz_base.h"
+#include "fitz.h"
 #include <android/log.h>
 
 char fz_errorbuf[100*20] = {0};
@@ -52,7 +52,7 @@ fz_error fz_throwimp(const char *file, int line, const char *func, char *fmt, ..
 	return -1;
 }
 
-fz_error fz_rethrowimp(fz_error cause, const char *file, int line, const char *func, char *fmt, ...)
+fz_error fz_rethrowimp(const char *file, int line, const char *func, fz_error cause, char *fmt, ...)
 {
 	char buf[100];
 	va_list ap;
@@ -63,7 +63,7 @@ fz_error fz_rethrowimp(fz_error cause, const char *file, int line, const char *f
 	return cause;
 }
 
-fz_error fz_catchimp(fz_error cause, const char *file, int line, const char *func, char *fmt, ...)
+void fz_catchimp(const char *file, int line, const char *func, fz_error cause, char *fmt, ...)
 {
 	char buf[100];
 	va_list ap;
@@ -72,6 +72,5 @@ fz_error fz_catchimp(fz_error cause, const char *file, int line, const char *fun
 	va_end(ap);
 	fz_printerror('\\', file, line, func, buf);
 	fz_errorclear = 1;
-	return cause;
 }
 
