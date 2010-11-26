@@ -311,6 +311,7 @@ public class DroidReaderDocument {
 		float zoomY = mZoom * mDpiY / 72;
 		float pageHeight = mPage.mMediabox[3]-mPage.mMediabox[1];
 		float pageWidth = mPage.mMediabox[2]-mPage.mMediabox[0];
+
 		mPageMatrix.reset();
 		// mirror on X-axis (because of different coord systems)
 		mPageMatrix.postScale(1, -1);
@@ -332,7 +333,7 @@ public class DroidReaderDocument {
 			pageHeight = pageWidth;
 			pageWidth = save;
 		}
-		
+
 		// If mZoom = ZOOM_FIT, ZOOM_FIT_HEIGHT, or ZOOM_FIT_WIDTH, then it
 		// isn't an actual zoom scale any more. In these cases, calculate the
 		// new zoom level and then re-set mZoom to its appropriate scale
@@ -340,7 +341,7 @@ public class DroidReaderDocument {
 		if (mZoom == ZOOM_FIT) {
 			float zoomH = mDisplaySizeY / pageHeight;
 			float zoomW = mDisplaySizeX / pageWidth;
-			
+
 			if (zoomH < zoomW) {
 				zoomX = zoomY = zoomH;
 				mZoom = zoomY * 72 / mDpiY;
@@ -360,7 +361,7 @@ public class DroidReaderDocument {
 			zoomX = zoomY = mDisplaySizeX / pageWidth;
 			mZoom = zoomX * 72 / mDpiX;
 		}
-		
+
 		mPageMatrix.postScale(zoomX, zoomY);
 		mPageSizeX = (int) (pageWidth * zoomX);
 		mPageSizeY = (int) (pageHeight * zoomY);

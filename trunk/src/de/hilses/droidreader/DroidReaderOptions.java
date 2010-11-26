@@ -43,10 +43,19 @@ implements OnPreferenceChangeListener {
 		findPreference("dpi_auto").setOnPreferenceChangeListener(this);
 		findPreference("tilesize_by_factor").setOnPreferenceChangeListener(this);
 	}
-	
+
+	// When the options menu is opened after being closed before (ie. it's
+	// being opened without being created), make sure the right options are
+	// enabled.
+	@Override
+	protected void onResume() {
+		super.onResume();
+		checkEnabledDisabled();
+	}
+
 	protected void checkEnabledDisabled() {
 		findPreference("zoom_percent").setEnabled(
-				((ListPreference) findPreference("zoom_type")).getValue()=="0");
+				(((ListPreference) findPreference("zoom_type")).getValue()).equals("0"));
 		findPreference("dpi_manual").setEnabled(
 				!((CheckBoxPreference) findPreference("dpi_auto")).isChecked());
 		findPreference("tilesize_factor").setEnabled(
