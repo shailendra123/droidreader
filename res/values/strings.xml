@@ -10,12 +10,14 @@
 <string name="error_no_filemanager_installed">No filemanager found that we could use!</string>
 <string name="error_no_such_page">Sorry, no such page!</string>
 <string name="error_only_file_uris">Sorry, only &quot;file://&quot; URIs are currently supported.</string>
+<string name="error_file_open_failed">Failed to open file.</string>
 <string name="error_opening_document">Failed to open the document. The PDF file might be broken.</string>
 <string name="error_wrong_password">The password you have given is incorrect!</string>
 <string name="eula_title">License</string>
 <string name="eula_accept">Accept</string>
 <string name="eula_refuse">Refuse</string>
 <string name="menu_zoom">View</string>
+<string name="menu_set_margin_offset">Set margin offset</string>
 <string name="menu_zoom_in">Zoom in</string>
 <string name="menu_zoom_out">Zoom out</string>
 <string name="menu_zoom_fit">Fit to page</string>
