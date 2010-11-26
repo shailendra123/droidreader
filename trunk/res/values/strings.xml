@@ -5,7 +5,7 @@
 <string name="button_page_cancel">Cancel</string>
 <string name="button_page_open">Open</string>
 <string name="button_pwddialog_cancel">Cancel</string>
-<string name="button_pwddialog_open">Open PDF...</string>
+<string name="button_pwddialog_open">Open PDF</string>
 <string name="button_ok">OK</string>
 <string name="error_no_filemanager_installed">No filemanager found that we could use!</string>
 <string name="error_no_such_page">Sorry, no such page!</string>
@@ -15,9 +15,9 @@
 <string name="eula_title">License</string>
 <string name="eula_accept">Accept</string>
 <string name="eula_refuse">Refuse</string>
-<string name="menu_zoom">Zoom</string>
-<string name="menu_zoom_in">Zoom in...</string>
-<string name="menu_zoom_out">Zoom out...</string>
+<string name="menu_zoom">View</string>
+<string name="menu_zoom_in">Zoom in</string>
+<string name="menu_zoom_out">Zoom out</string>
 <string name="menu_zoom_fit">Fit to page</string>
 <string name="menu_zoom_fitw">Fit to page width</string>
 <string name="menu_zoom_fith">Fit to page height</string>
@@ -30,16 +30,16 @@
 <string name="menu_file_options">Preferences</string>
 <string name="menu_file_about">About DroidReader</string>
 <string name="menu_file_quit">Quit DroidReader</string>
-<string name="menu_goto">Go to...</string>
+<string name="menu_goto">Go to page</string>
 <string name="menu_goto_first">first page</string>
 <string name="menu_goto_last">last page</string>
 <string name="menu_goto_ask">enter page no...</string>
-<string name="open_title">Open PDF File...</string>
+<string name="open_title">Open PDF</string>
 <string name="prompt_goto_page">Enter the page number you want to jump to:</string>
 <string name="prompt_password">The file you are opening is protected with a password. Please enter it here:</string>
 <string name="prefs_zoom">Zoom on startup:</string>
 <string name="prefs_zoom_type">Zoom type</string>
-<string name="prefs_zoom_percent">Zoom in Percent</string>
+<string name="prefs_zoom_percent">Zoom in percent</string>
 <string-array name="prefs_zoom_entries">
  <item>Fit to page</item>
  <item>Fit to page width</item>
