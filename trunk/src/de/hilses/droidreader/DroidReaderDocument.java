@@ -333,17 +333,32 @@ public class DroidReaderDocument {
 			pageWidth = save;
 		}
 		
-		if(mZoom == ZOOM_FIT || mZoom == ZOOM_FIT_HEIGHT) {
-			zoomX = zoomY = mDisplaySizeY / pageHeight;
-		}
-		if(mZoom == ZOOM_FIT || mZoom == ZOOM_FIT_WIDTH) {
-			float zoom = mDisplaySizeX / pageWidth;
-			if(mZoom == ZOOM_FIT) {
-				if(zoom < zoomY)
-					zoomY = zoomX = zoom;
-			} else {
-				zoomY = zoomX = zoom;
+		// If mZoom = ZOOM_FIT, ZOOM_FIT_HEIGHT, or ZOOM_FIT_WIDTH, then it
+		// isn't an actual zoom scale any more. In these cases, calculate the
+		// new zoom level and then re-set mZoom to its appropriate scale
+		// value. TODO: is there ever a case where zoomX != zoomY?
+		if (mZoom == ZOOM_FIT) {
+			float zoomH = mDisplaySizeY / pageHeight;
+			float zoomW = mDisplaySizeX / pageWidth;
+			
+			if (zoomH < zoomW) {
+				zoomX = zoomY = zoomH;
+				mZoom = zoomY * 72 / mDpiY;
 			}
+			else {
+				zoomX = zoomY = zoomW;
+				mZoom = zoomX * 72 / mDpiX;
+			}
+		}
+
+		if (mZoom == ZOOM_FIT_HEIGHT) {
+			zoomX = zoomY = mDisplaySizeY / pageHeight;
+			mZoom = zoomY * 72 / mDpiY;
+		}
+
+		if (mZoom == ZOOM_FIT_WIDTH) {
+			zoomX = zoomY = mDisplaySizeX / pageWidth;
+			mZoom = zoomX * 72 / mDpiX;
 		}
 		
 		mPageMatrix.postScale(zoomX, zoomY);
