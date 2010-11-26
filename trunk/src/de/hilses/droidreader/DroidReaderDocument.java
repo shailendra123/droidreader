@@ -136,7 +136,9 @@ public class DroidReaderDocument {
 	
 	int mOffsetX = 0;
 	int mOffsetY = 0;
-	
+	int mMarginOffsetX = 0;
+	int mMarginOffsetY = 0;
+
 	int mDisplaySizeX = 1;
 	int mDisplaySizeY = 1;
 	int mPageSizeX = 0;
@@ -152,17 +154,17 @@ public class DroidReaderDocument {
 	
 	final Object mDocumentLock = new Object();
 	
-	void open(String filename, String password, int pageNo, int offsetX, int offsetY) 
+	void open(String filename, String password, int pageNo) 
 	throws PasswordNeededException, WrongPasswordException, CannotRepairException, CannotDecryptXrefException, PageLoadException
 	{
 		if(LOG) Log.d(TAG, "opening document: "+filename);
+		mOffsetX = mMarginOffsetX;
+		mOffsetY = mMarginOffsetY;
 		synchronized(mDocumentLock) {
 			mPage.close();
 			mDocument.open(filename, password);
 			mPage.open(mDocument, pageNo);
 		}
-		mOffsetX = offsetX;
-		mOffsetY = offsetY;
 		mHavePixmap = false;
 		mMetadataDirty = true;
 		render(false);
@@ -172,15 +174,15 @@ public class DroidReaderDocument {
 	throws PageLoadException
 	{
 		if(LOG) Log.d(TAG, "opening page "+(isRelative?"(rel) ":"(abs) ")+no);
+		mOffsetX = mMarginOffsetX;
+		mOffsetY = mMarginOffsetY;
 		synchronized(mDocumentLock) {
 			int realPageNo = ((isRelative ? mPage.no : 0) + no);
 			if(!isRelative && (realPageNo == PAGE_LAST))
 				realPageNo = mDocument.pagecount;
+			mPage.close();
 			mPage.open(mDocument, realPageNo);
 		}
-		// TODO: introduce offsets here, too
-		mOffsetX = 0;
-		mOffsetY = 0;
 		mHavePixmap = false;
 		mMetadataDirty = true;
 		render(false);

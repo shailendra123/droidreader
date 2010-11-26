@@ -28,6 +28,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URLDecoder;
 
 import org.openintents.intents.FileManagerIntents;
 
@@ -40,6 +41,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteException;
 import android.preference.PreferenceManager;
 import android.webkit.WebView;
 import android.widget.Button;
@@ -47,6 +51,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -56,6 +61,8 @@ import android.view.ViewGroup;
 import android.view.View.OnClickListener;
 
 public class DroidReaderActivity extends Activity {
+	private static final boolean LOG = false;
+
 	private static final int REQUEST_CODE_PICK_FILE = 1;
 	private static final int REQUEST_CODE_OPTION_DIALOG = 2;
 	
@@ -70,8 +77,16 @@ public class DroidReaderActivity extends Activity {
 	private Button mButtonNext = null;
 	
 	private String mFilename;
+	private String mTemporaryFilename;
 	private String mPassword;
 	
+	private int mOffsetX;
+	private int mOffsetY;
+	private int mPageNo;
+
+	private boolean mDocumentIsOpen;
+	private boolean mLoadedDocument;
+
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -82,6 +97,8 @@ public class DroidReaderActivity extends Activity {
 		
 		if(mDocument == null)
 			mDocument = new DroidReaderDocument();
+		
+		mDocumentIsOpen = false;
 		
 		// Initialize the PdfRender engine
 		PdfRender.setFontProvider(new DroidReaderFontProvider(this));
@@ -124,45 +141,95 @@ public class DroidReaderActivity extends Activity {
 		mButtonPrev.setVisibility(View.INVISIBLE);
 		mButtonNext.setVisibility(View.INVISIBLE);
 		
-		// check if we were called in order to open a PDF:
-		Intent intent = getIntent();
-		if(intent.getData() != null) {
-			// yep:
-			mFilename = intent.getData().toString();
-			if(mFilename.startsWith("file://")) { 
-				mFilename = mFilename.substring(7);
-			} else if(mFilename.startsWith("/")) {
-				// raw filename
-			} else if(mFilename.startsWith("content://com.metago.astro.filesystem/")) {
-				// special case: ASTRO file manager
-				mFilename = mFilename.substring(37);
-			} else {
-				Toast.makeText(this, R.string.error_only_file_uris, 
-						Toast.LENGTH_SHORT).show();
-				mFilename = null;
-			}
-			if(mFilename!=null) {
-				// try to open with no password
-				mPassword = "";
-				openDocument();
-			}
-		} else if(savedInstanceState != null) {
+		// The priority for loading files is:
+		// 1) Check the bundle for a saved instance. If there is one, then
+		// reload it. This has to be before the check for an intent because
+		// the intent that was used when the app was first opened is
+		// supplied again after an instance cycle such as happens when
+		// you rotate the screen. This means that if another PDF was
+		// opened after the app was started, and then the screen is rotated,
+		// the app will go back to the original document if the intent is
+		// given first priority.
+		// 2) Check for an intent that indicates the app was started by
+		// selecting a PDF in a file manager etc.
+		// 3) Check what document was open last time the app closed down, and
+		// re-open it.
+		mLoadedDocument = false;
+		
+		if (savedInstanceState != null) {
 			mFilename = savedInstanceState.getString("filename");
 			
 			if((new File(mFilename)).exists()) {
 				mPassword = savedInstanceState.getString("password");
 				mDocument.mZoom = savedInstanceState.getFloat("zoom");
 				mDocument.mRotation = savedInstanceState.getInt("rotation");
-				openDocument(savedInstanceState.getInt("page"),0,0);
-				mDocument.offset(
-						savedInstanceState.getInt("offsetX"),
-						savedInstanceState.getInt("offsetY"),
-						false);
+				mPageNo = savedInstanceState.getInt("page");
+				mOffsetX = savedInstanceState.getInt("offsetX");
+				mOffsetY = savedInstanceState.getInt("offsetY");
+				mDocument.mMarginOffsetX = savedInstanceState.getInt("marginOffsetX");
+				mDocument.mMarginOffsetY = savedInstanceState.getInt("marginOffsetY");
+				openDocument();
+				mLoadedDocument = true;
 			}
 			savedInstanceState.clear();
 		}
+		
+		if (!mLoadedDocument) {
+			// check if we were called in order to open a PDF:
+			Intent intent = getIntent();
+			if(intent.getData() != null) {
+				// yep:
+				mTemporaryFilename = intent.getData().toString();
+				if(mTemporaryFilename.startsWith("file://")) { 
+					mTemporaryFilename = mTemporaryFilename.substring(7);
+				} else if(mTemporaryFilename.startsWith("/")) {
+					// raw filename
+				} else if(mTemporaryFilename.startsWith("content://com.metago.astro.filesystem/")) {
+					// special case: ASTRO file manager
+					mTemporaryFilename = mTemporaryFilename.substring(37);
+				} else {
+					Toast.makeText(this, R.string.error_only_file_uris, 
+							Toast.LENGTH_SHORT).show();
+					mTemporaryFilename = null;
+				}
+				if(mTemporaryFilename!=null) {
+					// try to open with no password
+					mPassword = "";
+					openDocumentWithDecodeAndLookup();
+					mLoadedDocument = true;
+				}
+			}
+		}
+	
+		if (!mLoadedDocument) {
+			// No filename supplied and no saved instance state. Re-open the last document
+			// that was viewed, if there was one.
+			SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+			mFilename = prefs.getString("last_open_file","");
+			if (mFilename != null) {
+				if ((mFilename.length() > 0) && ((new File(mFilename)).exists())) {
+					// Don't URL-decode the filename, as that's presumably
+					// already been done.
+					mPassword="";
+					openDocumentWithLookup();
+				}
+			}
+		}
 	}
 	
+	@Override
+	protected void onPause() {
+		super.onPause();
+		// Store the name of the document being viewed, so it can be re-called
+		// next time if the app is started without a filename.
+		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+		prefs.edit().putString("last_open_file",mFilename).commit();
+
+		// Also store the view details for this document in the database so the
+		// view can be restored.
+		readOrWriteDB(true);
+	}
+
 	@Override
 	protected void onSaveInstanceState(Bundle outState) {
 		super.onSaveInstanceState(outState);
@@ -172,11 +239,14 @@ public class DroidReaderActivity extends Activity {
 			outState.putInt("page", mDocument.mPage.no);
 			outState.putInt("offsetX", mDocument.mOffsetX);
 			outState.putInt("offsetY", mDocument.mOffsetY);
+			outState.putInt("marginOffsetX", mDocument.mMarginOffsetX);
+			outState.putInt("marginOffsetY", mDocument.mMarginOffsetY);
 			outState.putString("password", mPassword);
 			outState.putString("filename", mFilename);
+			mDocument.stopRendering();
 		}
 	}
-	
+
 	@Override
 	protected void onDestroy() {
 		if(mDocument != null)
@@ -190,9 +260,9 @@ public class DroidReaderActivity extends Activity {
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 
 		if(prefs.getString("zoom_type", "0").equals("0")) {
-			int zoom = Integer.parseInt(prefs.getString("zoom_percent", "50"));
+			float zoom = Float.parseFloat(prefs.getString("zoom_percent", "50"));
 			if((1 <= zoom) && (1000 >= zoom)) {
-				mDocument.setZoom(((float)zoom) / 100, false);
+				mDocument.setZoom(zoom / 100, false);
 			}
 		} else {
 			mDocument.setZoom(Float.parseFloat(prefs.getString("zoom_type", "0")), false);
@@ -235,8 +305,15 @@ public class DroidReaderActivity extends Activity {
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
 		
+		case R.id.set_margin_offset:
+			// Set the current offset to be applied to every page.
+
+			mDocument.mMarginOffsetX = mDocument.mOffsetX;
+			mDocument.mMarginOffsetY = mDocument.mOffsetY;
+			return true;
+
 		// Zooming:
-		
+
 		case R.id.zoom_in:
 			mDocument.setZoom(1.5F, true);
 			return true;
@@ -282,7 +359,10 @@ public class DroidReaderActivity extends Activity {
 		case R.id.open_file:
 			// present the file manager's "open..." dialog
 			Intent intent = new Intent(FileManagerIntents.ACTION_PICK_FILE);
-			intent.setData(Uri.parse("file://"));
+			if (mDocumentIsOpen)
+				intent.setData(Uri.parse("file://" + new File(mFilename).getParent()));
+			else
+				intent.setData(Uri.parse("file://"));
 			intent.putExtra(FileManagerIntents.EXTRA_TITLE, getString(R.string.open_title));
 			try {
 				startActivityForResult(intent, REQUEST_CODE_PICK_FILE);
@@ -313,26 +393,73 @@ public class DroidReaderActivity extends Activity {
 		switch (requestCode) {
 		case REQUEST_CODE_PICK_FILE:
 			if (resultCode == RESULT_OK && data != null) {
-				mFilename = data.getDataString();
-				if (mFilename != null) {
-					if (mFilename.startsWith("file://")) {
-						mFilename = mFilename.substring(7);
+				// Theoretically there could be a case where OnCreate() is called
+				// again with the intent that was originally used to open the app,
+				// which would revert to a previous document. Use setIntent
+				// to update the intent that will be supplied back to OnCreate().
+				setIntent(data);
+				mTemporaryFilename = data.getDataString();
+				if (mTemporaryFilename != null) {
+					if (mTemporaryFilename.startsWith("file://")) {
+						mTemporaryFilename = mTemporaryFilename.substring(7);
 					}
-					mPassword = "";
-					openDocument();
+					mPassword="";
+					openDocumentWithDecodeAndLookup();
 				}
 			}
 			break;
 		case REQUEST_CODE_OPTION_DIALOG:
 			readPreferences();
+			try {
+				mDocument.openPage(0, true);
+			} catch (PageLoadException e) {
+				// This is required to be caught, but really, nothing can be
+				// done about it.
+			}
 			break;
 		}
 	}
-	
-	protected void openDocument(int pageNo, int offsetX, int offsetY) {
+
+	// URL-decode the filename, look it up in the database of previous
+	// views, and then open the document.
+	protected void openDocumentWithDecodeAndLookup() {
 		try {
-			mDocument.open(mFilename, mPassword, pageNo, offsetX, offsetY);
+			// File names are URL-encoded (i.e. special chars are replaced
+			// with %-escaped numbers). Decode them before opening.
+			URLDecoder urldecoder = new URLDecoder();
+			mTemporaryFilename = urldecoder.decode(mTemporaryFilename,"utf-8");
+
+			// Do some sanity checks on the supplied filename.
+			File f=new File(mTemporaryFilename);
+			
+			if ((f.exists()) && (f.isFile()) && (f.canRead())) {
+				mFilename = mTemporaryFilename;
+				openDocumentWithLookup();
+			} else {
+				Toast.makeText(this, R.string.error_file_open_failed, 
+						Toast.LENGTH_LONG).show();
+			}
+		} catch (Exception e) {
+			Toast.makeText(this, R.string.error_opening_document, 
+					Toast.LENGTH_LONG).show();
+		}
+	}
+
+	protected void openDocumentWithLookup() {
+		readOrWriteDB(false);
+		openDocument();
+	}
+	
+	protected void openDocument() {
+		// Store the view details for the previous document and close it.
+		if (mDocumentIsOpen) {
+			mDocument.closeDocument();
+			mDocumentIsOpen = false;
+		}
+		try {
+			mDocument.open(mFilename, mPassword, mPageNo);
 			openPage(0, true);
+			mDocumentIsOpen = true;
 		} catch (PasswordNeededException e) {
 			showDialog(DIALOG_GET_PASSWORD);
 		} catch (WrongPasswordException e) {
@@ -343,11 +470,7 @@ public class DroidReaderActivity extends Activity {
 					Toast.LENGTH_LONG).show();
 		}
 	}
-	
-	protected void openDocument() {
-		openDocument(1, 0, 0);
-	}
-	
+
 	protected void openPage(int no, boolean isRelative) {
 		try {
 			if(!(no == 0 && isRelative))
@@ -389,7 +512,9 @@ public class DroidReaderActivity extends Activity {
 					public void onClick(DialogInterface dialog, int id) {
 						DroidReaderActivity.this.mPassword = 
 							((EditText) ((AlertDialog) dialog).findViewById(R.id.input_password)).getText().toString();
-						DroidReaderActivity.this.openDocument();
+						// Don't URL-decode the filename, as that's already
+						// been done.
+						DroidReaderActivity.this.openDocumentWithLookup();
 						dialog.dismiss();
 					}
 				});
@@ -468,6 +593,91 @@ public class DroidReaderActivity extends Activity {
 			return buffer;
 		} catch (IOException e) {
 			return "";
+		}
+	}
+
+	protected void readOrWriteDB(boolean doWrite) {
+		SQLiteDatabase pdfDB = null;
+		try {
+			pdfDB = this.openOrCreateDatabase("DroidReaderPDFDB", MODE_PRIVATE, null );
+			pdfDB.execSQL(	"CREATE TABLE IF NOT EXISTS LastReadPoint (" +
+							"Filename VARCHAR, Zoom DECIMAL(10,5), " +
+							"Rotation INTEGER, Page INTEGER, " +
+							"OffsetX INTEGER, OffsetY INTEGER, " +
+							"MarginOffsetX INTEGER, MarginOffsetY INTEGER, " +
+							"ContentFitMode INTEGER, Password VARCHAR );");
+			Cursor c = pdfDB.rawQuery ("SELECT * FROM LastReadPoint WHERE Filename = '" + mFilename + "'", null);
+
+			// c shouldn't be null, if it is then there's an external problem
+			if (c != null) {
+				if (c.getCount() > 0) {
+					// There's already an entry for this file.
+					c.moveToFirst();
+					if (doWrite) {
+						pdfDB.execSQL("UPDATE LastReadPoint SET " +
+							"Zoom = " + mDocument.mZoom + " , " +
+							"Rotation = " + mDocument.mRotation + " , " +
+							"Page = " + mDocument.mPage.no + " , " +
+							"OffsetX = " + mDocument.mOffsetX + " , " +
+							"OffsetY = " + mDocument.mOffsetY + " , " +
+							"MarginOffsetX = " + mDocument.mMarginOffsetX + " , " +
+							"MarginOffsetY = " + mDocument.mMarginOffsetY + " , " +
+							"Password = '" + mPassword + "' " +
+							"WHERE Filename = '" + mFilename + "';");
+					} else {
+						mDocument.mZoom = c.getFloat(c.getColumnIndex("Zoom"));
+						mDocument.mRotation = c.getInt(c.getColumnIndex("Rotation"));
+						mPageNo = c.getInt(c.getColumnIndex("Page"));
+						if (mPageNo == 0)
+							mPageNo = 1;
+						mOffsetX = c.getInt(c.getColumnIndex("OffsetX"));
+						mOffsetY = c.getInt(c.getColumnIndex("OffsetY"));
+						mDocument.mMarginOffsetX = c.getInt(c.getColumnIndex("MarginOffsetX"));
+						mDocument.mMarginOffsetY = c.getInt(c.getColumnIndex("MarginOffsetY"));
+						
+// Don't restore the password. This would be a bit of a security nightmare,
+// because documents would be unsecured after the password was entered once -
+// and there wouldn't be any way to re-secure them. Presumably people who
+// use password-protected PDFs will prefer to enter the password whenever they
+// open the document.						
+//						if (mPassword.length() == 0) {
+//							mPassword = c.getString(c.getColumnIndex("Password"));
+//						}
+					}
+				} else {
+					// No entry found for this file.
+					if (doWrite) {
+						pdfDB.execSQL("INSERT INTO LastReadPoint VALUES ('" +
+							mFilename + "', " +
+							mDocument.mZoom + " , " +
+							mDocument.mRotation + " , " +
+							mDocument.mPage.no + " , " +
+							mDocument.mOffsetX + " , " +
+							mDocument.mOffsetY + " , " +
+							mDocument.mMarginOffsetX + " , " +
+							mDocument.mMarginOffsetY + " , " +
+							"'" + mPassword + "');" );
+					} else {
+						// reading: Set some default values
+						mDocument.mZoom = mDocument.ZOOM_FIT;
+						mDocument.mRotation = 0;
+						mOffsetX = 0;
+						mOffsetY = 0;
+						mDocument.mMarginOffsetX = 0;
+						mDocument.mMarginOffsetY = 0;
+						mPageNo = 1;
+					}
+				}
+				c.close();
+			} else {
+				if (LOG) Log.d ("DroidReaderDB", "Problem here... no Cursor, query must have failed");
+			}
+		} catch (SQLiteException se ) {
+        	Log.e(getClass().getSimpleName(), "Could not create or open the database");
+		} finally {
+			if (pdfDB != null) {
+				pdfDB.close();
+			}
 		}
 	}
 }
