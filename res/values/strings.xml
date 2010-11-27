@@ -13,9 +13,6 @@
 <string name="error_file_open_failed">Failed to open file.</string>
 <string name="error_opening_document">Failed to open the document. The PDF file might be broken.</string>
 <string name="error_wrong_password">The password you have given is incorrect!</string>
-<string name="eula_title">License</string>
-<string name="eula_accept">Accept</string>
-<string name="eula_refuse">Refuse</string>
 <string name="menu_zoom">View</string>
 <string name="menu_set_margin_offset">Set margin offset</string>
 <string name="menu_zoom_in">Zoom in</string>
@@ -33,10 +30,11 @@
 <string name="menu_file_about">About DroidReader</string>
 <string name="menu_file_quit">Quit DroidReader</string>
 <string name="menu_goto">Go to page</string>
-<string name="menu_goto_first">first page</string>
-<string name="menu_goto_last">last page</string>
-<string name="menu_goto_ask">enter page no...</string>
+<string name="menu_goto_first">First page</string>
+<string name="menu_goto_last">Last page</string>
+<string name="menu_goto_ask">Enter page no...</string>
 <string name="open_title">Open PDF</string>
+<string name="welcome_title">Welcome to DroidReader!</string>
 <string name="prompt_goto_page">Enter the page number you want to jump to:</string>
 <string name="prompt_password">The file you are opening is protected with a password. Please enter it here:</string>
 <string name="prefs_zoom">Zoom on startup:</string>

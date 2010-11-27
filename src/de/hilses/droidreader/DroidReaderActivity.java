@@ -65,58 +65,67 @@ public class DroidReaderActivity extends Activity {
 
 	private static final int REQUEST_CODE_PICK_FILE = 1;
 	private static final int REQUEST_CODE_OPTION_DIALOG = 2;
-	
+
 	private static final int DIALOG_GET_PASSWORD = 1;
 	private static final int DIALOG_ABOUT = 2;
 	private static final int DIALOG_GOTO_PAGE = 3;
+	private static final int DIALOG_WELCOME = 4;
+
+    private static final String PREFERENCE_EULA_ACCEPTED = "eula.accepted";
+    private static final String PREFERENCES_EULA = "eula";
 
 	protected DroidReaderView mReaderView = null;
 	protected DroidReaderDocument mDocument = null;
-	
+
 	private Button mButtonPrev = null;
 	private Button mButtonNext = null;
-	
+
 	private String mFilename;
 	private String mTemporaryFilename;
 	private String mPassword;
-	
+
 	private int mOffsetX;
 	private int mOffsetY;
 	private int mPageNo;
 
-	private boolean mDocumentIsOpen;
-	private boolean mLoadedDocument;
+	private boolean mDocumentIsOpen = false;
+	private boolean mLoadedDocument = false;
+	private boolean mWelcomeShown = false;
 
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		// first, show the EULA:
-		Eula.show(this);
-		
+		// first, show the wlcome if it hasn't been shown already:
+        final SharedPreferences preferences = getSharedPreferences(PREFERENCES_EULA,
+						Activity.MODE_PRIVATE);
+        if (!preferences.getBoolean(PREFERENCE_EULA_ACCEPTED, false)) {
+			mWelcomeShown = true;
+			preferences.edit().putBoolean(PREFERENCE_EULA_ACCEPTED, true).commit();
+			showDialog(DIALOG_WELCOME);
+		}
+
 		if(mDocument == null)
 			mDocument = new DroidReaderDocument();
-		
-		mDocumentIsOpen = false;
-		
+
 		// Initialize the PdfRender engine
 		PdfRender.setFontProvider(new DroidReaderFontProvider(this));
-		
+
 		// then build our layout. it's so simple that we don't use
 		// XML for now.
 		FrameLayout fl = new FrameLayout(this);
 
 		readPreferences();
-		
+
 		mReaderView = new DroidReaderView(this, null, mDocument);
-		
+
 		View navigationOverlay = getLayoutInflater().inflate(R.layout.navigationoverlay,
 				(ViewGroup) findViewById(R.id.navigationlayout));
-		
+
 		mButtonPrev = (Button) navigationOverlay.findViewById(R.id.button_prev);
 		mButtonNext = (Button) navigationOverlay.findViewById(R.id.button_next);
-		
+
 		mButtonPrev.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				DroidReaderActivity.this.openPage(-1, true);
@@ -135,12 +144,12 @@ public class DroidReaderActivity extends Activity {
 				ViewGroup.LayoutParams.WRAP_CONTENT,
 				Gravity.BOTTOM));
 		setContentView(fl);
-		
+
 		mButtonPrev.setClickable(false);
 		mButtonNext.setClickable(false);
 		mButtonPrev.setVisibility(View.INVISIBLE);
 		mButtonNext.setVisibility(View.INVISIBLE);
-		
+
 		// The priority for loading files is:
 		// 1) Check the bundle for a saved instance. If there is one, then
 		// reload it. This has to be before the check for an intent because
@@ -154,11 +163,9 @@ public class DroidReaderActivity extends Activity {
 		// selecting a PDF in a file manager etc.
 		// 3) Check what document was open last time the app closed down, and
 		// re-open it.
-		mLoadedDocument = false;
-		
 		if (savedInstanceState != null) {
 			mFilename = savedInstanceState.getString("filename");
-			
+
 			if((new File(mFilename)).exists()) {
 				mPassword = savedInstanceState.getString("password");
 				mDocument.mZoom = savedInstanceState.getFloat("zoom");
@@ -173,14 +180,14 @@ public class DroidReaderActivity extends Activity {
 			}
 			savedInstanceState.clear();
 		}
-		
+
 		if (!mLoadedDocument) {
 			// check if we were called in order to open a PDF:
 			Intent intent = getIntent();
 			if(intent.getData() != null) {
 				// yep:
 				mTemporaryFilename = intent.getData().toString();
-				if(mTemporaryFilename.startsWith("file://")) { 
+				if(mTemporaryFilename.startsWith("file://")) {
 					mTemporaryFilename = mTemporaryFilename.substring(7);
 				} else if(mTemporaryFilename.startsWith("/")) {
 					// raw filename
@@ -188,7 +195,7 @@ public class DroidReaderActivity extends Activity {
 					// special case: ASTRO file manager
 					mTemporaryFilename = mTemporaryFilename.substring(37);
 				} else {
-					Toast.makeText(this, R.string.error_only_file_uris, 
+					Toast.makeText(this, R.string.error_only_file_uris,
 							Toast.LENGTH_SHORT).show();
 					mTemporaryFilename = null;
 				}
@@ -200,7 +207,7 @@ public class DroidReaderActivity extends Activity {
 				}
 			}
 		}
-	
+
 		if (!mLoadedDocument) {
 			// No filename supplied and no saved instance state. Re-open the last document
 			// that was viewed, if there was one.
@@ -212,11 +219,20 @@ public class DroidReaderActivity extends Activity {
 					// already been done.
 					mPassword="";
 					openDocumentWithLookup();
+					mLoadedDocument = true;
 				}
 			}
 		}
+
+		if (!mLoadedDocument) {
+			// No document to show at all. Instead, show the welcome dialog.
+			// Don't do it if this is the first time running the program (because it's
+			// already been shown)
+			if (!mWelcomeShown)
+				showDialog(DIALOG_WELCOME);
+		}
 	}
-	
+
 	@Override
 	protected void onPause() {
 		super.onPause();
@@ -253,7 +269,7 @@ public class DroidReaderActivity extends Activity {
 			mDocument.closeDocument();
 		super.onDestroy();
 	}
-	
+
 	private void readPreferences() {
 		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
 		DisplayMetrics metrics = new DisplayMetrics();
@@ -267,7 +283,7 @@ public class DroidReaderActivity extends Activity {
 		} else {
 			mDocument.setZoom(Float.parseFloat(prefs.getString("zoom_type", "0")), false);
 		}
-		
+
 		if(prefs.getBoolean("dpi_auto", true)) {
 			// read the display's DPI
 			mDocument.setDpi((int) metrics.xdpi, (int) metrics.ydpi);
@@ -277,7 +293,7 @@ public class DroidReaderActivity extends Activity {
 				dpi = 160; // sanity check fallback
 			mDocument.setDpi(dpi, dpi);
 		}
-		
+
 		if(prefs.getBoolean("tilesize_by_factor", true)) {
 			// set the tile size for rendering by factor
 			Float factor = Float.parseFloat(prefs.getString("tilesize_factor", "1.5"));
@@ -304,7 +320,7 @@ public class DroidReaderActivity extends Activity {
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
 		switch (item.getItemId()) {
-		
+
 		case R.id.set_margin_offset:
 			// Set the current offset to be applied to every page.
 
@@ -332,18 +348,18 @@ public class DroidReaderActivity extends Activity {
 		case R.id.zoom_orig:
 			mDocument.setZoom(1.0F, false);
 			return true;
-			
+
 		// Rotation:
-			
+
 		case R.id.rotation_left:
 			mDocument.setRotation(270, true);
 			return true;
 		case R.id.rotation_right:
 			mDocument.setRotation(90, true);
 			return true;
-			
+
 		// Page Navigation:
-			
+
 		case R.id.goto_first:
 			openPage(1, false);
 			return true;
@@ -353,9 +369,9 @@ public class DroidReaderActivity extends Activity {
 		case R.id.goto_ask:
 			showDialog(DIALOG_GOTO_PAGE);
 			return true;
-			
+
 		// File menu
-			
+
 		case R.id.open_file:
 			// present the file manager's "open..." dialog
 			Intent intent = new Intent(FileManagerIntents.ACTION_PICK_FILE);
@@ -367,7 +383,7 @@ public class DroidReaderActivity extends Activity {
 			try {
 				startActivityForResult(intent, REQUEST_CODE_PICK_FILE);
 			} catch (ActivityNotFoundException e) {
-				Toast.makeText(this, R.string.error_no_filemanager_installed, 
+				Toast.makeText(this, R.string.error_no_filemanager_installed,
 						Toast.LENGTH_SHORT).show();
 			}
 			return true;
@@ -431,16 +447,16 @@ public class DroidReaderActivity extends Activity {
 
 			// Do some sanity checks on the supplied filename.
 			File f=new File(mTemporaryFilename);
-			
+
 			if ((f.exists()) && (f.isFile()) && (f.canRead())) {
 				mFilename = mTemporaryFilename;
 				openDocumentWithLookup();
 			} else {
-				Toast.makeText(this, R.string.error_file_open_failed, 
+				Toast.makeText(this, R.string.error_file_open_failed,
 						Toast.LENGTH_LONG).show();
 			}
 		} catch (Exception e) {
-			Toast.makeText(this, R.string.error_opening_document, 
+			Toast.makeText(this, R.string.error_opening_document,
 					Toast.LENGTH_LONG).show();
 		}
 	}
@@ -449,7 +465,7 @@ public class DroidReaderActivity extends Activity {
 		readOrWriteDB(false);
 		openDocument();
 	}
-	
+
 	protected void openDocument() {
 		// Store the view details for the previous document and close it.
 		if (mDocumentIsOpen) {
@@ -463,10 +479,10 @@ public class DroidReaderActivity extends Activity {
 		} catch (PasswordNeededException e) {
 			showDialog(DIALOG_GET_PASSWORD);
 		} catch (WrongPasswordException e) {
-			Toast.makeText(this, R.string.error_wrong_password, 
+			Toast.makeText(this, R.string.error_wrong_password,
 					Toast.LENGTH_LONG).show();
 		} catch (Exception e) {
-			Toast.makeText(this, R.string.error_opening_document, 
+			Toast.makeText(this, R.string.error_opening_document,
 					Toast.LENGTH_LONG).show();
 		}
 	}
@@ -494,7 +510,7 @@ public class DroidReaderActivity extends Activity {
 			// TODO Auto-generated catch block
 		}
 	}
-	
+
 	protected Dialog onCreateDialog(int id) {
 		switch(id) {
 		case DIALOG_GET_PASSWORD:
@@ -510,7 +526,7 @@ public class DroidReaderActivity extends Activity {
 			builder.setPositiveButton(R.string.button_pwddialog_open,
 				new DialogInterface.OnClickListener() {
 					public void onClick(DialogInterface dialog, int id) {
-						DroidReaderActivity.this.mPassword = 
+						DroidReaderActivity.this.mPassword =
 							((EditText) ((AlertDialog) dialog).findViewById(R.id.input_password)).getText().toString();
 						// Don't URL-decode the filename, as that's already
 						// been done.
@@ -558,27 +574,34 @@ public class DroidReaderActivity extends Activity {
 			AlertDialog gotoDialog = gotoBuilder.create();
 			return gotoDialog;
 		case DIALOG_ABOUT:
-			AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(this);
-			WebView aboutWebView = new WebView(this);
-			aboutWebView.loadData(readAbout().toString(), "text/html", "UTF-8");
-			aboutBuilder.setView(aboutWebView);
-			aboutBuilder.setCancelable(false);
-			aboutBuilder.setPositiveButton(R.string.button_ok,
-					new DialogInterface.OnClickListener() {
-						public void onClick(DialogInterface dialog, int id) {
-							dialog.dismiss();
-						}
-					});
-			AlertDialog aboutDialog = aboutBuilder.create();
-			return aboutDialog;
+			return showHtmlDialog(R.string.menu_file_about,"about.html");
+		case DIALOG_WELCOME:
+			return showHtmlDialog(R.string.welcome_title,"welcome.html");
 		}
 		return null;
 	}
-	
-	private CharSequence readAbout() {
+
+	AlertDialog showHtmlDialog(int titleResource, String htmlFile) {
+		AlertDialog.Builder htmlBuilder = new AlertDialog.Builder(this);
+		WebView htmlWebView = new WebView(this);
+		htmlWebView.loadData(readHtml(htmlFile).toString(), "text/html", "UTF-8");
+		htmlBuilder.setView(htmlWebView);
+		htmlBuilder.setCancelable(false);
+		htmlBuilder.setPositiveButton(R.string.button_ok,
+				new DialogInterface.OnClickListener() {
+					public void onClick(DialogInterface dialog, int id) {
+						dialog.dismiss();
+					}
+				});
+		AlertDialog htmlDialog = htmlBuilder.create();
+		htmlDialog.setTitle(getString(titleResource));
+		return htmlDialog;
+	}
+
+	private CharSequence readHtml(String htmlFile) {
 		BufferedReader in = null;
 		try {
-			in = new BufferedReader(new InputStreamReader(this.getAssets().open("about.html")));
+			in = new BufferedReader(new InputStreamReader(this.getAssets().open(htmlFile)));
 			String line;
 			StringBuilder buffer = new StringBuilder();
 			while ((line = in.readLine()) != null)
@@ -605,7 +628,8 @@ public class DroidReaderActivity extends Activity {
 							"Rotation INTEGER, Page INTEGER, " +
 							"OffsetX INTEGER, OffsetY INTEGER, " +
 							"MarginOffsetX INTEGER, MarginOffsetY INTEGER, " +
-							"ContentFitMode INTEGER, Password VARCHAR );");
+							"ContentFitMode INTEGER, MemoryMode INTEGER, " +
+							"Password VARCHAR );");
 			Cursor c = pdfDB.rawQuery ("SELECT * FROM LastReadPoint WHERE Filename = '" + mFilename + "'", null);
 
 			// c shouldn't be null, if it is then there's an external problem
@@ -634,12 +658,12 @@ public class DroidReaderActivity extends Activity {
 						mOffsetY = c.getInt(c.getColumnIndex("OffsetY"));
 						mDocument.mMarginOffsetX = c.getInt(c.getColumnIndex("MarginOffsetX"));
 						mDocument.mMarginOffsetY = c.getInt(c.getColumnIndex("MarginOffsetY"));
-						
+
 // Don't restore the password. This would be a bit of a security nightmare,
 // because documents would be unsecured after the password was entered once -
 // and there wouldn't be any way to re-secure them. Presumably people who
 // use password-protected PDFs will prefer to enter the password whenever they
-// open the document.						
+// open the document.
 //						if (mPassword.length() == 0) {
 //							mPassword = c.getString(c.getColumnIndex("Password"));
 //						}
