@@ -646,6 +646,7 @@ public class DroidReaderActivity extends Activity {
 							"OffsetY = " + mDocument.mOffsetY + " , " +
 							"MarginOffsetX = " + mDocument.mMarginOffsetX + " , " +
 							"MarginOffsetY = " + mDocument.mMarginOffsetY + " , " +
+							"ContentFitMode = 0 , MemoryMode = 0 ," +
 							"Password = '" + mPassword + "' " +
 							"WHERE Filename = '" + mFilename + "';");
 					} else {
@@ -679,7 +680,7 @@ public class DroidReaderActivity extends Activity {
 							mDocument.mOffsetX + " , " +
 							mDocument.mOffsetY + " , " +
 							mDocument.mMarginOffsetX + " , " +
-							mDocument.mMarginOffsetY + " , " +
+							mDocument.mMarginOffsetY + " , 0 , 0 ," +
 							"'" + mPassword + "');" );
 					} else {
 						// reading: Set some default values
