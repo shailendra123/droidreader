@@ -63,28 +63,31 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	 * our gesture detector
 	 */
 	protected final GestureDetector mGestureDetector;
-	
+
 	/**
 	 * our context
 	 */
-	protected final Context mContext;
-	
+	protected final DroidReaderActivity mActivity;
+
 	/**
 	 * our SurfaceHolder
 	 */
 	protected final SurfaceHolder mSurfaceHolder;
-	
+
 	protected final DroidReaderDocument mDocument;
-	
+
+	protected float mWidth;
+	protected float mHeight;
+
 	/**
 	 * constructs a new View
 	 * @param context Context for the View
 	 * @param attrs attributes (may be null)
 	 */
-	public DroidReaderView(final Context context, AttributeSet attrs, DroidReaderDocument document) {
-		super(context, attrs);
-		
-		mContext = context;
+	public DroidReaderView(final DroidReaderActivity activity, AttributeSet attrs, DroidReaderDocument document) {
+		super(activity, attrs);
+
+		mActivity = activity;
 		mSurfaceHolder = getHolder();
 		mDocument = document;
 		mDocument.mRenderListener = this;
@@ -92,12 +95,12 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 		// tell the SurfaceHolder to inform this thread on
 		// changes to the surface
 		mSurfaceHolder.addCallback(this);
-		
+
 		mGestureDetector = new GestureDetector(this);
 	}
 
 	/* event listeners: */
-	
+
 	@Override
 	public boolean onTrackballEvent(MotionEvent event) {
 		if(LOG) Log.d(TAG, "onTouchEvent(): notifying ViewThread");
@@ -105,7 +108,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 		mThread.triggerRepaint();
 		return true;
 	}
-	
+
 	@Override
 	public boolean onTouchEvent(final MotionEvent event) {
 		if(LOG) Log.d(TAG, "onTouchEvent(): notifying mGestureDetector");
@@ -113,27 +116,27 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 			return true;
 		return super.onTouchEvent(event);
 	}
-	
+
 	/* keyboard events: */
-	
+
 	public boolean onKeyDown(int keyCode, KeyEvent msg) {
 		if(LOG) Log.d(TAG, "onKeyDown(), keycode "+keyCode);
 		return false;
 	}
-	
+
 	public boolean onKeyUp(int keyCode, KeyEvent msg) {
 		if(LOG) Log.d(TAG, "onKeyUp(), keycode "+keyCode);
 		return false;
 	}
-	
+
 	/* interface for the GestureListener: */
-	
+
 	@Override
 	public boolean onDown(MotionEvent e) {
 		// just consume the event
 		return true;
 	}
-	
+
 	@Override
 	public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
 			float velocityY) {
@@ -164,26 +167,29 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 
 	@Override
 	public boolean onSingleTapUp(MotionEvent e) {
-		// just consume the event...
+		// Pass the tap, and the window dimensions, to the activity to process.
+		mActivity.onTap( e.getX(), e.getY(), mWidth, mHeight );
 		return true;
 	}
-	
+
 	/* surface events: */
-	
+
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		if(LOG) Log.d(TAG, "surfaceCreated(): starting ViewThread");
-		mThread = new DroidReaderViewThread(holder, mContext, mDocument);
+		mThread = new DroidReaderViewThread(holder, mActivity, mDocument);
 		mThread.start();
 	}
-	
+
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width,
 			int height) {
 		if(LOG) Log.d(TAG, "surfaceChanged(): size "+width+"x"+height);
+		mWidth = (float)width;
+		mHeight = (float)height;
 		mDocument.startRendering(width, height);
 	}
-	
+
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		if(LOG) Log.d(TAG, "surfaceDestroyed(): dying");
@@ -199,7 +205,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 			}
 		}
 	}
-	
+
 	/* render events */
 
 	@Override
