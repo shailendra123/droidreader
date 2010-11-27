@@ -43,7 +43,7 @@ interface FontProvider {
 	 * @return file name with full path
 	 */
 	String getFontFile(String fontName, String collection, int flags);
-	
+
 	/**
 	 * callback that is used to retrieve a buffer containing font data
 	 * @param fontName the name of the font to load
@@ -52,7 +52,7 @@ interface FontProvider {
 	 * @return allocated ByteBuffer filled with the font data
 	 */
 	ByteBuffer getFontBuffer(String fontName, String collection, int flags);
-	
+
 	/**
 	 * callback that is used to retrieve a buffer containing charmap (CMap) data
 	 * @param cmapName charmap to load
@@ -100,7 +100,7 @@ final class PdfRender {
 	 * how much memory is the MuPDF backend allowed to use
 	 */
 	protected static int fitzMemory = 512 * 1024;
-	
+
 	/**
 	 * the FontProvider instance that is queried from JNI code
 	 */
@@ -110,14 +110,14 @@ final class PdfRender {
 		/* JNI: load our native library */
 		System.loadLibrary("pdfrender");
 	}
-	
+
 	/**
 	 * just checks if a given file can be accessed from JNI code
 	 * @param fname the filename to check for
 	 * @return 0 if the file was found, libc's errno otherwise
 	 */
 	private static native int nativeCheckFont(String fname);
-	
+
 	/**
 	 * convenience method to check if a file is present and accessible from native code
 	 * @param fname the filename to check for
@@ -126,7 +126,7 @@ final class PdfRender {
 	static boolean checkFont(String fname) {
 		return (nativeCheckFont(fname) == 0);
 	}
-	
+
 	/**
 	 * Sets a new FontProvider
 	 * @param newProvider the new FontProvider
@@ -173,13 +173,13 @@ class PdfDocument {
 	 * backend sets this to the number of pages
 	 */
 	public int pagecount = 0;
-	
+
 	/**
 	 * this will be used to store a C Pointer (ick!) to the
 	 * structure holding our references in the native code
 	 */
 	protected long mHandle = 0;
-	
+
 	/**
 	 * will open a PDF document
 	 * @param fitzMemory the memory that the MuPDF rendering backend is allowed to claim
@@ -189,13 +189,13 @@ class PdfDocument {
 	 */
 	private native long nativeOpen(
 			int fitzMemory,
-			String filename, String password) 
+			String filename, String password)
 		throws
 			PasswordNeededException,
 			WrongPasswordException,
 			CannotRepairException,
 			CannotDecryptXrefException;
-	
+
 	/**
 	 * open a PDF
 	 * @param filename the PDF file
@@ -203,7 +203,7 @@ class PdfDocument {
 	 */
 	public void open(String filename, String password)
 	throws
-		PasswordNeededException, 
+		PasswordNeededException,
 		WrongPasswordException,
 		CannotRepairException,
 		CannotDecryptXrefException
@@ -213,13 +213,13 @@ class PdfDocument {
 		mHandle = this.nativeOpen(
 				PdfRender.fitzMemory, filename, password);
 	}
-	
+
 	/**
 	 * close a PDF document
 	 * @param dochandle the handle that was returned upon opening the PDF
 	 */
 	private native void nativeClose(long dochandle);
-	
+
 	/**
 	 * this cleans up the memory used by this document. The document
 	 * cannot be used after calling this!
@@ -231,7 +231,7 @@ class PdfDocument {
 			pagecount = 0;
 		}
 	}
-	
+
 	/**
 	 * destructor, cleans up memory
 	 */
@@ -267,7 +267,7 @@ class PdfPage {
 	 * structure holding our references in the native code
 	 */
 	protected long mHandle = 0;
-	
+
 	/**
 	 * calls the native code to open a page
 	 * @param dochandle the Handle (C pointer) for the document
@@ -291,7 +291,7 @@ class PdfPage {
 		this.no = no;
 		mHandle = this.nativeOpenPage(doc.mHandle, mMediabox, mContentbox, no);
 	}
-	
+
 	/**
 	 * cleans up the memory we claimed in native code
 	 * @param pagehandle the handle we got upon opening the page
@@ -308,14 +308,14 @@ class PdfPage {
 			no = 0;
 		}
 	}
-	
+
 	/**
 	 * destructor caring for cleaning up memory
 	 */
 	public void finalize() {
 		this.close();
 	}
-	
+
 	/**
 	 * getter for the MediaBox of the opened page
 	 * @return RectF holding the MediaBox
@@ -341,7 +341,7 @@ class PdfView {
 	 * the pixmap we will render to
 	 */
 	public int[] mBuf;
-	
+
 	public final Rect mViewBox = new Rect();
 
 	private int[] mRect = { 0, 0, 0, 0 };
@@ -350,7 +350,7 @@ class PdfView {
 			0, 0, 0,
 			0, 0, 0   };
 	private float[] mMatrix = { 0, 0, 0, 0, 0, 0 };
-	
+
 	/**
 	 * Call native code to render part of a page to a buffer
 	 * @param dochandle the handle of the document for which we render
@@ -370,19 +370,19 @@ class PdfView {
 	 * @param viewbox the excerpt Rect that we should render (coordinates after applying the matrix)
 	 * @param matrix the Matrix used for rendering
 	 */
-	public void render(PdfDocument doc, PdfPage page, Rect viewbox, Matrix matrix) 
+	public void render(PdfDocument doc, PdfPage page, Rect viewbox, Matrix matrix)
 			throws PageRenderException
 	{
 		int size = viewbox.width() * viewbox.height()
 				* ((PdfRender.bytesPerPixel * 8) / 32);
 		if((mBuf == null) || (mBuf.length != size))
 			mBuf = new int[size];
-		
+
 		mRect[0] = viewbox.left;
 		mRect[1] = viewbox.top;
 		mRect[2] = viewbox.right;
 		mRect[3] = viewbox.bottom;
-		
+
 		matrix.getValues(mMatrixSource);
 		mMatrix[0] = mMatrixSource[0];
 		mMatrix[1] = mMatrixSource[3];

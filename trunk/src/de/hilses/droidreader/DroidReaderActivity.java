@@ -46,7 +46,6 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.preference.PreferenceManager;
 import android.webkit.WebView;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
@@ -58,7 +57,6 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.View.OnClickListener;
 
 public class DroidReaderActivity extends Activity {
 	private static final boolean LOG = false;
@@ -77,9 +75,6 @@ public class DroidReaderActivity extends Activity {
 	protected DroidReaderView mReaderView = null;
 	protected DroidReaderDocument mDocument = null;
 
-	private Button mButtonPrev = null;
-	private Button mButtonNext = null;
-
 	private String mFilename;
 	private String mTemporaryFilename;
 	private String mPassword;
@@ -97,7 +92,7 @@ public class DroidReaderActivity extends Activity {
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
-		// first, show the wlcome if it hasn't been shown already:
+		// first, show the welcome if it hasn't been shown already:
         final SharedPreferences preferences = getSharedPreferences(PREFERENCES_EULA,
 						Activity.MODE_PRIVATE);
         if (!preferences.getBoolean(PREFERENCE_EULA_ACCEPTED, false)) {
@@ -120,35 +115,9 @@ public class DroidReaderActivity extends Activity {
 
 		mReaderView = new DroidReaderView(this, null, mDocument);
 
-		View navigationOverlay = getLayoutInflater().inflate(R.layout.navigationoverlay,
-				(ViewGroup) findViewById(R.id.navigationlayout));
-
-		mButtonPrev = (Button) navigationOverlay.findViewById(R.id.button_prev);
-		mButtonNext = (Button) navigationOverlay.findViewById(R.id.button_next);
-
-		mButtonPrev.setOnClickListener(new OnClickListener() {
-			public void onClick(View v) {
-				DroidReaderActivity.this.openPage(-1, true);
-			}
-		});
-		mButtonNext.setOnClickListener(new OnClickListener() {
-			public void onClick(View v) {
-				DroidReaderActivity.this.openPage(+1, true);
-			}
-		});
-
 		// add the viewing area and the navigation
 		fl.addView(mReaderView);
-		fl.addView(navigationOverlay, new FrameLayout.LayoutParams(
-				ViewGroup.LayoutParams.FILL_PARENT,
-				ViewGroup.LayoutParams.WRAP_CONTENT,
-				Gravity.BOTTOM));
 		setContentView(fl);
-
-		mButtonPrev.setClickable(false);
-		mButtonNext.setClickable(false);
-		mButtonPrev.setVisibility(View.INVISIBLE);
-		mButtonNext.setVisibility(View.INVISIBLE);
 
 		// The priority for loading files is:
 		// 1) Check the bundle for a saved instance. If there is one, then
@@ -491,23 +460,39 @@ public class DroidReaderActivity extends Activity {
 		try {
 			if(!(no == 0 && isRelative))
 				mDocument.openPage(no, isRelative);
-			if(mDocument.havePage(-1, true)) {
-				mButtonPrev.setClickable(true);
-				mButtonPrev.setVisibility(View.VISIBLE);
-			} else {
-				mButtonPrev.setClickable(false);
-				mButtonPrev.setVisibility(View.INVISIBLE);
-			}
-			if(mDocument.havePage(1, true)) {
-				mButtonNext.setClickable(true);
-				mButtonNext.setVisibility(View.VISIBLE);
-			} else {
-				mButtonNext.setClickable(false);
-				mButtonNext.setVisibility(View.INVISIBLE);
-			}
 			this.setTitle(mFilename+" ("+mDocument.mPage.no+")");
 		} catch (PageLoadException e) {
 			// TODO Auto-generated catch block
+		}
+	}
+
+	public void onTap (float X, float Y, float width, float height) {
+		float left, right, top, bottom;
+		boolean prev = false;
+		boolean next = false;
+
+		if (mDocumentIsOpen) {
+			left = width * (float)0.25;
+			right = width * (float)0.75;
+			top = height * (float)0.25;
+			bottom = height * (float)0.75;
+
+			if ((X<left) && (Y < top))
+				prev = true;
+			if ((X<left) && (Y > bottom))
+				next = true;
+			if ((X>right) && (Y < top))
+				prev = true;
+			if ((X>right) && (Y > bottom))
+				next = true;
+
+			if (next) {
+				if(mDocument.havePage(1, true))
+					openPage(1, true);
+			} else if (prev) {
+				if(mDocument.havePage(-1, true))
+					openPage(-1, true);
+			}
 		}
 	}
 
