@@ -442,6 +442,7 @@ public class DroidReaderActivity extends Activity {
 			mDocumentIsOpen = false;
 		}
 		try {
+			this.setTitle(mFilename);
 			mDocument.open(mFilename, mPassword, mPageNo);
 			openPage(0, true);
 			mDocumentIsOpen = true;
@@ -460,7 +461,7 @@ public class DroidReaderActivity extends Activity {
 		try {
 			if(!(no == 0 && isRelative))
 				mDocument.openPage(no, isRelative);
-			this.setTitle(mFilename+" ("+mDocument.mPage.no+")");
+			this.setTitle(new File(mFilename).getName()+" ("+mDocument.mPage.no+")");
 		} catch (PageLoadException e) {
 			// TODO Auto-generated catch block
 		}
