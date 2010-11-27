@@ -493,7 +493,7 @@ JNIEXPORT void JNICALL
 
 JNIEXPORT jlong JNICALL
 	Java_de_hilses_droidreader_PdfPage_nativeOpenPage
-	(JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jint pageno)
+	(JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jfloatArray contentbox, jint pageno)
 {
 	renderdocument_t *doc = (renderdocument_t*)(unsigned long) dochandle;
 	DEBUG("PdfPage(%p).nativeOpenPage(%p)", this, doc);
@@ -503,6 +503,8 @@ JNIEXPORT jlong JNICALL
 	fz_device *dev = NULL;
 	jclass cls;
 	jfieldID fid;
+	fz_rect content;
+	fz_displaynode *pDN;
 	jfloat *bbox;
 
 	page = fz_malloc(sizeof(renderpage_t));
@@ -542,6 +544,42 @@ JNIEXPORT jlong JNICALL
 	bbox[2] = page->page->mediabox.x1;
 	bbox[3] = page->page->mediabox.y1;
 	(*env)->ReleasePrimitiveArrayCritical(env, mediabox, bbox, 0);
+
+	pDN = page->list->first;
+	if (pDN) {
+		content.x0 = pDN->rect.x0;
+		content.y0 = pDN->rect.y0;
+		content.x1 = pDN->rect.x1;
+		content.y1 = pDN->rect.y1;
+	}
+
+	while (pDN) {
+		if (!((fabs(pDN->rect.x0) < 0.1) &&
+		      (fabs(pDN->rect.y0) < 0.1) &&
+			  (fabs(pDN->rect.x1) < 0.1) &&
+			  (fabs(pDN->rect.y1) < 0.1))) {
+			if (pDN->rect.x0 < content.x0)
+				content.x0 = pDN->rect.x0;
+			if (pDN->rect.y0 < content.y0)
+				content.y0 = pDN->rect.y0;
+			if (pDN->rect.x1 > content.x1)
+				content.x1 = pDN->rect.x1;
+			if (pDN->rect.y1 > content.y1)
+				content.y1 = pDN->rect.y1;
+		}
+		pDN = pDN->next;
+	}
+
+	bbox = (*env)->GetPrimitiveArrayCritical(env, contentbox, 0);
+	if(bbox == NULL) {
+		throw_exception(env, EXC, "out of memory");
+		goto cleanup;
+	}
+	bbox[0] = content.x0;
+	bbox[1] = content.y0;
+	bbox[2] = content.x1;
+	bbox[3] = content.y1;
+	(*env)->ReleasePrimitiveArrayCritical(env, contentbox, bbox, 0);
 
 	cls = (*env)->GetObjectClass(env, this);
 	fid = (*env)->GetFieldID(env, cls, "rotate","I");

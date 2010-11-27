@@ -258,6 +258,11 @@ class PdfPage {
 	protected float[] mMediabox = {0, 0, 0, 0};
 
 	/**
+	 * the boundaries of the content for the page, still as float[4]
+	 */
+	protected float[] mContentbox = {0, 0, 0, 0};
+
+	/**
 	 * this will be used to store a C Pointer (ick!) to the
 	 * structure holding our references in the native code
 	 */
@@ -270,7 +275,7 @@ class PdfPage {
 	 * @param no page number to open
 	 * @return handle for the opened page
 	 */
-	private native long nativeOpenPage(long dochandle, float[] mediabox, int no)
+	private native long nativeOpenPage(long dochandle, float[] mediabox, float[] contentbox, int no)
 		throws PageLoadException;
 
 	/**
@@ -284,7 +289,7 @@ class PdfPage {
 		if(mHandle != 0)
 			this.close();
 		this.no = no;
-		mHandle = this.nativeOpenPage(doc.mHandle, mMediabox, no);
+		mHandle = this.nativeOpenPage(doc.mHandle, mMediabox, mContentbox, no);
 	}
 	
 	/**
@@ -317,6 +322,14 @@ class PdfPage {
 	 */
 	public RectF getMediaBox() {
 		return new RectF(mMediabox[0], mMediabox[1], mMediabox[2], mMediabox[3]);
+	}
+
+	/**
+	 * getter for the content boundaries of the opened page
+	 * @return RectF holding the boundaries
+	 */
+	public RectF getContentBox() {
+		return new RectF(mContentbox[0], mContentbox[1], mContentbox[2], mContentbox[3]);
 	}
 }
 
