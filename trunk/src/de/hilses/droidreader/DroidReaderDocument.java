@@ -223,6 +223,11 @@ public class DroidReaderDocument {
 		}
 	}
 
+	void setDisplayInvert(boolean invert)
+	{
+		mView.setDisplayInvert(invert);
+	}
+
 	void setDpi(int x, int y) {
 		if(LOG) Log.d(TAG, "setDpi: "+x+","+y);
 		mDpiX = x;

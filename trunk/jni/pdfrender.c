@@ -39,6 +39,9 @@ the Free Software Foundation, either version 3 of the License, or
 
 #define BYPP 4
 
+/* Bit masks for rendering options */
+#define PDF_RENDER_DISPLAY_INVERT		(1)
+
 /* Debugging helper */
 
 #ifdef PDFRENDER_DEBUG
@@ -620,7 +623,7 @@ JNIEXPORT void JNICALL
 	Java_de_hilses_droidreader_PdfView_nativeCreateView
 	(JNIEnv *env, jobject this, jlong dochandle, jlong pagehandle,
 		jintArray viewboxarray, jfloatArray matrixarray,
-		jintArray bufferarray)
+		jintArray bufferarray, jlong flags)
 {
 	renderdocument_t *doc = (renderdocument_t*)(unsigned long) dochandle;
 	renderpage_t *page = (renderpage_t*)(unsigned long) pagehandle;
@@ -679,6 +682,11 @@ JNIEXPORT void JNICALL
 	dev = fz_newdrawdevice(glyphcache, &pixmap);
 	fz_executedisplaylist(page->list, dev, ctm);
 	fz_freedevice(dev);
+
+	if (flags & PDF_RENDER_DISPLAY_INVERT) {
+		for (i=0;i<j;i++)
+			buffer[i] ^= 0xffffffff;
+	}
 
 	(*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
 

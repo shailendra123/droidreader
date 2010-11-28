@@ -2,6 +2,12 @@
 <PreferenceScreen
 	xmlns:android="http://schemas.android.com/apk/res/android">
 
+	<CheckBoxPreference
+		android:key="invert_display"
+		android:title="@string/prefs_invert_display"
+		android:defaultValue="false"
+		/>
+
 	<ListPreference
 		android:key="zoom_type"
 		android:title="@string/prefs_zoom"
