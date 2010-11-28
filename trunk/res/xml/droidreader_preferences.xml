@@ -8,6 +8,12 @@
 		android:defaultValue="false"
 		/>
 
+	<CheckBoxPreference
+		android:key="full_screen"
+		android:title="@string/prefs_full_screen"
+		android:defaultValue="false"
+		/>
+
 	<ListPreference
 		android:key="zoom_type"
 		android:title="@string/prefs_zoom"
