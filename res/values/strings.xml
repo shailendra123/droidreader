@@ -75,4 +75,5 @@
 <string name="prefs_cid_font_Adobe_Korea1_gothic">Adobe-Korea1 Gothic</string>
 <string name="status_no_document">No document loaded.</string>
 <string name="status_page_rendering">Rendering page...</string>
+<string name="prefs_invert_display">Invert display</string>
 </resources>

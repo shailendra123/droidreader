@@ -44,7 +44,7 @@ class DroidReaderViewThread extends Thread {
 	 * the SurfaceHolder for our Surface
 	 */
 	protected final SurfaceHolder mSurfaceHolder;
-	
+
 	/**
 	 * Paint for not (yet) rendered parts of the page
 	 */
@@ -57,19 +57,19 @@ class DroidReaderViewThread extends Thread {
 	 * Paint for the status text
 	 */
 	protected final Paint mStatusPaint;
-	
+
 	/**
 	 * Flag that our thread should be running
 	 */
 	protected boolean mRun = true;
-	
+
 	/**
 	 * our scroller
 	 */
 	protected final Scroller mScroller;
-	
+
 	protected final DroidReaderDocument mDocument;
-	
+
 	/**
 	 * Background render thread, using the SurfaceView programming
 	 * scheme
@@ -80,26 +80,43 @@ class DroidReaderViewThread extends Thread {
 			DroidReaderDocument document) {
 		// store a reference to our SurfaceHolder
 		mSurfaceHolder = holder;
-		
+
 		mDocument = document;
-		
+
 		// initialize Paints for non-Pixmap areas
 		mEmptyPaint = new Paint();
-		mEmptyPaint.setStyle(Paint.Style.FILL);
-		mEmptyPaint.setColor(0xffc0c0c0); // light gray
-		
 		mNoPagePaint = new Paint();
-		mNoPagePaint.setStyle(Paint.Style.FILL);
-		mNoPagePaint.setColor(0xff303030); // dark gray
-		
 		mStatusPaint = new Paint();
-		mNoPagePaint.setColor(0xff808080); // medium gray
-		
+
+		setPainters(false);
+
 		// the scroller, i.e. the object that calculates/interpolates
 		// positions for scrolling/jumping/flinging
 		mScroller = new Scroller(context);
 	}
-	
+
+	public void setPainters(boolean invert) {
+		// initialize Paints for non-Pixmap areas
+		mEmptyPaint.setStyle(Paint.Style.FILL);
+		mNoPagePaint.setStyle(Paint.Style.FILL);
+		mStatusPaint.setStyle(Paint.Style.FILL);
+
+		if (invert)
+			mEmptyPaint.setColor(0x00000000); // black
+		else
+			mEmptyPaint.setColor(0xffc0c0c0); // light gray
+		
+		if (invert)
+			mNoPagePaint.setColor(0x00000000); // black
+		else
+			mNoPagePaint.setColor(0xff303030); // dark gray
+		
+		if (invert)
+			mStatusPaint.setColor(0x00000000); // black
+		else
+			mStatusPaint.setColor(0xff808080); // medium gray
+	}
+
 	/**
 	 * Main Thread loop
 	 */
@@ -139,7 +156,7 @@ class DroidReaderViewThread extends Thread {
 		// mRun is now false, so we shut down.
 		if(LOG) Log.d(TAG, "shutting down");
 	}
-	
+
 	/**
 	 * this does the actual drawing to the Canvas for our surface
 	 */
@@ -178,7 +195,7 @@ class DroidReaderViewThread extends Thread {
 			}
 		}
 	}
-	
+
 	public void triggerRepaint() {
 		if(LOG) Log.d(TAG, "repaint triggered");
 		interrupt();

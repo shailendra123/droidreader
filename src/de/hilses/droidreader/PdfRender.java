@@ -337,6 +337,8 @@ class PdfPage {
  * Object that controls rendering parts of pages to a int[] pixmap buffer
  */
 class PdfView {
+	protected static final long mInvertDisplayMask = 1;
+
 	/**
 	 * the pixmap we will render to
 	 */
@@ -351,6 +353,8 @@ class PdfView {
 			0, 0, 0   };
 	private float[] mMatrix = { 0, 0, 0, 0, 0, 0 };
 
+	protected boolean mDisplayInvert = false;
+
 	/**
 	 * Call native code to render part of a page to a buffer
 	 * @param dochandle the handle of the document for which we render
@@ -361,7 +365,7 @@ class PdfView {
 	 */
 	private native void nativeCreateView(
 			long dochandle, long pagehandle,
-			int[] viewbox, float[] matrix, int[] buffer)
+			int[] viewbox, float[] matrix, int[] buffer, long flags)
 		throws PageRenderException;
 
 	/**
@@ -375,6 +379,9 @@ class PdfView {
 	{
 		int size = viewbox.width() * viewbox.height()
 				* ((PdfRender.bytesPerPixel * 8) / 32);
+
+		long tempflags;
+
 		if((mBuf == null) || (mBuf.length != size))
 			mBuf = new int[size];
 
@@ -391,9 +398,17 @@ class PdfView {
 		mMatrix[4] = mMatrixSource[2];
 		mMatrix[5] = mMatrixSource[5];
 
+		tempflags = 0;
+		if (mDisplayInvert)
+			tempflags |= mInvertDisplayMask;
+
 		this.nativeCreateView(
 				doc.mHandle, page.mHandle,
-				mRect, mMatrix, mBuf);
+				mRect, mMatrix, mBuf, tempflags);
 		mViewBox.set(viewbox);
+	}
+
+	public void setDisplayInvert(boolean invert) {
+		mDisplayInvert = invert;
 	}
 }

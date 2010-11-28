@@ -111,13 +111,13 @@ public class DroidReaderActivity extends Activity {
 		// XML for now.
 		FrameLayout fl = new FrameLayout(this);
 
-		readPreferences();
-
 		mReaderView = new DroidReaderView(this, null, mDocument);
 
 		// add the viewing area and the navigation
 		fl.addView(mReaderView);
 		setContentView(fl);
+
+		readPreferences();
 
 		// The priority for loading files is:
 		// 1) Check the bundle for a saved instance. If there is one, then
@@ -276,6 +276,10 @@ public class DroidReaderActivity extends Activity {
 				mDocument.setTileMax(tilesize_y, tilesize_x);
 			}
 		}
+
+		boolean invert = prefs.getBoolean("invert_display", false);
+		mDocument.setDisplayInvert(invert);
+		mReaderView.setDisplayInvert(invert);
 	}
 
 	/** Creates the menu items */

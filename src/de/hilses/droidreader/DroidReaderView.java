@@ -76,6 +76,8 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 
 	protected final DroidReaderDocument mDocument;
 
+	protected boolean mDisplayInvert;
+
 	protected float mWidth;
 	protected float mHeight;
 
@@ -172,12 +174,19 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 		return true;
 	}
 
+	public void setDisplayInvert(boolean invert) {
+		if (mThread != null)
+			mThread.setPainters(invert);
+		mDisplayInvert = invert;
+	}
+ 
 	/* surface events: */
 
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		if(LOG) Log.d(TAG, "surfaceCreated(): starting ViewThread");
 		mThread = new DroidReaderViewThread(holder, mActivity, mDocument);
+		mThread.setPainters(mDisplayInvert);
 		mThread.start();
 	}
 
