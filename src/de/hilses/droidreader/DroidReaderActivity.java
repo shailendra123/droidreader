@@ -57,6 +57,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 
 public class DroidReaderActivity extends Activity {
 	private static final boolean LOG = false;
@@ -280,6 +281,12 @@ public class DroidReaderActivity extends Activity {
 		boolean invert = prefs.getBoolean("invert_display", false);
 		mDocument.setDisplayInvert(invert);
 		mReaderView.setDisplayInvert(invert);
+
+		if (prefs.getBoolean("full_screen",false)) {
+			this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		} else {
+			this.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		}
 	}
 
 	/** Creates the menu items */
