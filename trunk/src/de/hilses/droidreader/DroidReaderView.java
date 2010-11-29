@@ -78,9 +78,6 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 
 	protected boolean mDisplayInvert;
 
-	protected float mWidth;
-	protected float mHeight;
-
 	/**
 	 * constructs a new View
 	 * @param context Context for the View
@@ -170,7 +167,7 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	@Override
 	public boolean onSingleTapUp(MotionEvent e) {
 		// Pass the tap, and the window dimensions, to the activity to process.
-		mActivity.onTap( e.getX(), e.getY(), mWidth, mHeight );
+		mActivity.onTap( e.getX(), e.getY() );
 		return true;
 	}
 
@@ -194,8 +191,6 @@ implements OnGestureListener, SurfaceHolder.Callback, DroidReaderDocument.Render
 	public void surfaceChanged(SurfaceHolder holder, int format, int width,
 			int height) {
 		if(LOG) Log.d(TAG, "surfaceChanged(): size "+width+"x"+height);
-		mWidth = (float)width;
-		mHeight = (float)height;
 		mDocument.startRendering(width, height);
 	}
 
