@@ -102,17 +102,17 @@ class DroidReaderViewThread extends Thread {
 		mStatusPaint.setStyle(Paint.Style.FILL);
 
 		if (invert)
-			mEmptyPaint.setColor(0x00000000); // black
+			mEmptyPaint.setColor(0xff000000); // black
 		else
 			mEmptyPaint.setColor(0xffc0c0c0); // light gray
 		
 		if (invert)
-			mNoPagePaint.setColor(0x00000000); // black
+			mNoPagePaint.setColor(0xff000000); // black
 		else
 			mNoPagePaint.setColor(0xff303030); // dark gray
 		
 		if (invert)
-			mStatusPaint.setColor(0x00000000); // black
+			mStatusPaint.setColor(0xff000000); // black
 		else
 			mStatusPaint.setColor(0xff808080); // medium gray
 	}
