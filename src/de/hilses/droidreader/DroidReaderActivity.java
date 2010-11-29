@@ -303,7 +303,6 @@ public class DroidReaderActivity extends Activity {
 
 		case R.id.set_margin_offset:
 			// Set the current offset to be applied to every page.
-
 			mDocument.mMarginOffsetX = mDocument.mOffsetX;
 			mDocument.mMarginOffsetY = mDocument.mOffsetY;
 			return true;
@@ -472,14 +471,16 @@ public class DroidReaderActivity extends Activity {
 		try {
 			if(!(no == 0 && isRelative))
 				mDocument.openPage(no, isRelative);
-			this.setTitle(new File(mFilename).getName()+" ("+mDocument.mPage.no+")");
+			this.setTitle(new File(mFilename).getName()+" ("+mDocument.mPage.no+"/"+mDocument.mDocument.pagecount+")");
 		} catch (PageLoadException e) {
 			// TODO Auto-generated catch block
 		}
 	}
 
-	public void onTap (float X, float Y, float width, float height) {
+	public void onTap (float X, float Y) {
 		float left, right, top, bottom;
+        float width = mDocument.mDisplaySizeX;
+        float height = mDocument.mDisplaySizeY;
 		boolean prev = false;
 		boolean next = false;
 
