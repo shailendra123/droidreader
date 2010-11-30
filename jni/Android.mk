@@ -309,7 +309,7 @@ LOCAL_SRC_FILES := \
 	mupdf-overlay/fitz/base_error.c \
 	mupdf/fitz/base_geometry.c \
 	mupdf/fitz/base_hash.c \
-	mupdf/fitz/base_memory.c \
+	mupdf-overlay/fitz/base_memory.c \
 	mupdf/fitz/base_string.c \
 	mupdf/fitz/crypt_aes.c \
 	mupdf/fitz/crypt_arc4.c \

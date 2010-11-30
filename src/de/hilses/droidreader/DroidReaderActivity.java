@@ -135,7 +135,6 @@ public class DroidReaderActivity extends Activity {
 		// re-open it.
 		if (savedInstanceState != null) {
 			mFilename = savedInstanceState.getString("filename");
-
 			if((new File(mFilename)).exists()) {
 				mPassword = savedInstanceState.getString("password");
 				mDocument.mZoom = savedInstanceState.getFloat("zoom");
@@ -287,6 +286,8 @@ public class DroidReaderActivity extends Activity {
 		} else {
 			this.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		}
+        
+        mDocument.mHorizontalScrollLock = prefs.getBoolean("horizontal_scroll_lock",false);
 	}
 
 	/** Creates the menu items */
@@ -405,12 +406,6 @@ public class DroidReaderActivity extends Activity {
 			break;
 		case REQUEST_CODE_OPTION_DIALOG:
 			readPreferences();
-			try {
-				mDocument.openPage(0, true);
-			} catch (PageLoadException e) {
-				// This is required to be caught, but really, nothing can be
-				// done about it.
-			}
 			break;
 		}
 	}
