@@ -39,6 +39,9 @@ the Free Software Foundation, either version 3 of the License, or
 
 #define BYPP 4
 
+/* Bit masks for page load options */
+#define PDF_PAGE_MEMORY_HOG             (1)
+
 /* Bit masks for rendering options */
 #define PDF_RENDER_DISPLAY_INVERT		(1)
 
@@ -77,6 +80,7 @@ struct renderdocument_s
 {
 	pdf_xref *xref;
 	pdf_outline *outline;
+    int isMemoryHog;
 };
 
 typedef struct renderpage_s renderpage_t;
@@ -494,9 +498,19 @@ JNIEXPORT void JNICALL
 	}
 }
 
+JNIEXPORT jint JNICALL
+    Java_de_hilses_droidreader_PdfDocument_nativeIsMemoryHog
+    	(JNIEnv *env, jobject this, jlong handle)
+{
+	renderdocument_t *doc = (renderdocument_t*)(unsigned long) handle;
+	DEBUG("PdfDocument(%p).nativeIsMemoryHog(%p) will return %d", this, doc, doc->isMemoryHog);
+
+    return doc->isMemoryHog;
+}
+
 JNIEXPORT jlong JNICALL
 	Java_de_hilses_droidreader_PdfPage_nativeOpenPage
-	(JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jfloatArray contentbox, jint pageno)
+	(JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jfloatArray contentbox, jint pageno, jint flags)
 {
 	renderdocument_t *doc = (renderdocument_t*)(unsigned long) dochandle;
 	DEBUG("PdfPage(%p).nativeOpenPage(%p)", this, doc);
@@ -516,10 +530,20 @@ JNIEXPORT jlong JNICALL
 		return (jlong)(unsigned long) NULL;
 	}
 
-	if (doc->xref->store)
-		pdf_freestore(doc->xref->store);
-	
-	doc->xref->store = pdf_newstore();
+    if (flags & PDF_PAGE_MEMORY_HOG) {
+        if (doc->xref->store) {
+            pdf_freestore(doc->xref->store);
+            doc->xref->store = (pdf_store *)0;
+        }
+    }
+
+    if (!doc->xref->store)
+        doc->xref->store = pdf_newstore();
+
+	if (!(flags & PDF_PAGE_MEMORY_HOG))
+        pdf_agestore(doc->xref->store, 2);
+
+    fz_start_tracing(doc->xref->store);
 
 	obj = pdf_getpageobject(doc->xref, pageno);
 	error = pdf_loadpage(&page->page, doc->xref, obj);
@@ -583,6 +607,12 @@ JNIEXPORT jlong JNICALL
 	bbox[2] = content.x1;
 	bbox[3] = content.y1;
 	(*env)->ReleasePrimitiveArrayCritical(env, contentbox, bbox, 0);
+
+    /* If the document's memory allocation was above the threshold set in
+     * fitz/base_memory.c, set the "memory hog" flag. Note, don't clear it if
+     * it was already set.
+     */
+    doc->isMemoryHog |= fz_stop_tracing();
 
 	cls = (*env)->GetObjectClass(env, this);
 	fid = (*env)->GetFieldID(env, cls, "rotate","I");

@@ -149,6 +149,8 @@ public class DroidReaderDocument {
 	Matrix mPageMatrix = new Matrix();
 	boolean mIsScrollingX = false;
 	boolean mIsScrollingY = false;
+    
+    boolean mHorizontalScrollLock = false;
 
 	RenderListener mRenderListener = new DummyRenderListener();
 
@@ -163,7 +165,7 @@ public class DroidReaderDocument {
 		synchronized(mDocumentLock) {
 			mPage.close();
 			mDocument.open(filename, password);
-			mPage.open(mDocument, pageNo);
+			mPage.open(mDocument, pageNo, mDocument.isMemoryHog());
 		}
 		mHavePixmap = false;
 		mMetadataDirty = true;
@@ -181,7 +183,7 @@ public class DroidReaderDocument {
 			if(!isRelative && (realPageNo == PAGE_LAST))
 				realPageNo = mDocument.pagecount;
 			mPage.close();
-			mPage.open(mDocument, realPageNo);
+			mPage.open(mDocument, realPageNo, mDocument.isMemoryHog());
 		}
 		mHavePixmap = false;
 		mMetadataDirty = true;
@@ -264,7 +266,8 @@ public class DroidReaderDocument {
 		if(mMetadataDirty)
 			calcPageMetadata();
 
-		mOffsetX = (isRelative ? mOffsetX : 0) + x;
+        if (!mHorizontalScrollLock)
+            mOffsetX = (isRelative ? mOffsetX : 0) + x;
 		mOffsetY = (isRelative ? mOffsetY : 0) + y;
 
 		if(mOffsetX > mOffsetMaxX) mOffsetX = mOffsetMaxX;

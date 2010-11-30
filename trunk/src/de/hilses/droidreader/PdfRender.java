@@ -233,6 +233,15 @@ class PdfDocument {
 	}
 
 	/**
+	 * Find out if the current document is a memory hog.
+	 */
+	private native int nativeIsMemoryHog(long dochandle);
+
+    public int isMemoryHog() {
+        return this.nativeIsMemoryHog(mHandle);
+    }
+
+	/**
 	 * destructor, cleans up memory
 	 */
 	public void finalize() {
@@ -275,21 +284,22 @@ class PdfPage {
 	 * @param no page number to open
 	 * @return handle for the opened page
 	 */
-	private native long nativeOpenPage(long dochandle, float[] mediabox, float[] contentbox, int no)
+	private native long nativeOpenPage(long dochandle, float[] mediabox, float[] contentbox, int no, int flags)
 		throws PageLoadException;
 
 	/**
 	 * constructs a new PdfPage object for a given page in a given document
 	 * @param doc the PdfDocument
 	 * @param no the number of the page (starting at 1) to open
+     * @param flags 1 if the document is a memory hog
 	 */
-	public void open(PdfDocument doc, int no)
+	public void open(PdfDocument doc, int no, int flags)
 			throws PageLoadException
 	{
 		if(mHandle != 0)
 			this.close();
 		this.no = no;
-		mHandle = this.nativeOpenPage(doc.mHandle, mMediabox, mContentbox, no);
+		mHandle = this.nativeOpenPage(doc.mHandle, mMediabox, mContentbox, no, flags);
 	}
 
 	/**

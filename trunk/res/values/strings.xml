@@ -77,4 +77,5 @@
 <string name="status_page_rendering">Rendering page...</string>
 <string name="prefs_invert_display">Invert display</string>
 <string name="prefs_full_screen">Full screen</string>
+<string name="prefs_horizontal_scroll_lock">Horizontal scroll lock</string>
 </resources>
