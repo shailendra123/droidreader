@@ -39,6 +39,9 @@ the Free Software Foundation, either version 3 of the License, or
 
 #define BYPP 4
 
+/* Number of cache structs for page preloading */
+#define NUM_CACHE_STRUCTS               (2)
+
 /* Bit masks for page load options */
 #define PDF_PAGE_MEMORY_HOG             (1)
 
@@ -49,16 +52,16 @@ the Free Software Foundation, either version 3 of the License, or
 
 #ifdef PDFRENDER_DEBUG
 #define DEBUG(args...) \
-	__android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
+    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", args)
 #define INFO(args...) \
-	__android_log_print(ANDROID_LOG_INFO, "PdfRender", args)
+    __android_log_print(ANDROID_LOG_INFO, "PdfRender", args)
 #else
 #define DEBUG(args...) {}
 #define INFO(args...) {}
 #endif
 
 #define ERROR(args...) \
-	__android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
+    __android_log_print(ANDROID_LOG_ERROR, "PdfRender", args)
 
 /* Exception classes */
 
@@ -75,21 +78,24 @@ the Free Software Foundation, either version 3 of the License, or
  */
 /************************************************************************/
 
-typedef struct renderdocument_s renderdocument_t;
-struct renderdocument_s
-{
-	pdf_xref *xref;
-	pdf_outline *outline;
-    int isMemoryHog;
-};
-
 typedef struct renderpage_s renderpage_t;
 struct renderpage_s
 {
-	pdf_page *page;
-	fz_matrix ctm;
-	fz_rect bbox;
-	fz_displaylist *list;
+    fz_displaylist *list;
+    fz_rect contentbox;
+    fz_rect pagebox;
+    int rotate;
+    int pageNo;
+};
+
+typedef struct renderdocument_s renderdocument_t;
+struct renderdocument_s
+{
+    pdf_xref *xref;
+    pdf_outline *outline;
+    int isMemoryHog;
+    int currentlyDisplayedPage;
+    renderpage_t *pages[NUM_CACHE_STRUCTS];
 };
 
 /**
@@ -106,15 +112,15 @@ fz_glyphcache *glyphcache;
 
 void throw_exception(JNIEnv *env, char *exception_class, char *message)
 {
-	jthrowable new_exception = (*env)->FindClass(env, exception_class);
-	if(new_exception == NULL) {
-		ERROR("cannot create Exception '%s', Message was '%s'",
-				exception_class, message);
-		return;
-	} else {
-		DEBUG("Exception '%s', Message: '%s'", exception_class, message);
-	}
-	(*env)->ThrowNew(env, new_exception, message);
+    jthrowable new_exception = (*env)->FindClass(env, exception_class);
+    if(new_exception == NULL) {
+        ERROR("cannot create Exception '%s', Message was '%s'",
+                exception_class, message);
+        return;
+    } else {
+        DEBUG("Exception '%s', Message: '%s'", exception_class, message);
+    }
+    (*env)->ThrowNew(env, new_exception, message);
 }
 
 /* a callback to retrieve font file names */
@@ -122,603 +128,694 @@ void throw_exception(JNIEnv *env, char *exception_class, char *message)
 fz_error
 pdf_getfontfile(pdf_fontdesc *font, char *fontname, char *collection, char **filename)
 {
-	JNIEnv *env;
-	jboolean iscopy;
-	jclass pdfrender;
-	jclass fontproviderclass;
-	jfieldID fontproviderfield;
-	jobject fontprovider;
-	jmethodID getfontfilemethod;
-	jstring fontfilestring;
-	jstring fontnamestring;
-	jstring collectionstring;
-	char *filenamebuf;
+    JNIEnv *env;
+    jboolean iscopy;
+    jclass pdfrender;
+    jclass fontproviderclass;
+    jfieldID fontproviderfield;
+    jobject fontprovider;
+    jmethodID getfontfilemethod;
+    jstring fontfilestring;
+    jstring fontnamestring;
+    jstring collectionstring;
+    char *filenamebuf;
 
-	DEBUG("pdf_getfontfile(%p, '%s', '%s')", font, fontname, collection);
+    DEBUG("pdf_getfontfile(%p, '%s', '%s')", font, fontname, collection);
 
-	if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
-		return fz_throw("cannot find our JNI env!");
+    if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
+        return fz_throw("cannot find our JNI env!");
 
-	pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
-	if(pdfrender == NULL)
-		return fz_throw("cannot find JNI interface class");
+    pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
+    if(pdfrender == NULL)
+        return fz_throw("cannot find JNI interface class");
 
-	fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
-			"fontProvider", "Lde/hilses/droidreader/FontProvider;");
-	if(fontproviderfield == NULL)
-		return fz_throw("cannot find fontProvider field");
+    fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
+            "fontProvider", "Lde/hilses/droidreader/FontProvider;");
+    if(fontproviderfield == NULL)
+        return fz_throw("cannot find fontProvider field");
 
-	fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
-	if(fontprovider == NULL)
-		return fz_throw("cannot access fontProvider field");
+    fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
+    if(fontprovider == NULL)
+        return fz_throw("cannot access fontProvider field");
 
-	fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
-	if(fontproviderclass == NULL)
-		return fz_throw("cannot get class for fontProvider field content");
+    fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
+    if(fontproviderclass == NULL)
+        return fz_throw("cannot get class for fontProvider field content");
 
-	getfontfilemethod = (*env)->GetMethodID(env, fontproviderclass,
-			"getFontFile",
-			"(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;");
-	if(getfontfilemethod == NULL)
-		return fz_throw("cannot find method getFontFile() in fontProvider");
+    getfontfilemethod = (*env)->GetMethodID(env, fontproviderclass,
+            "getFontFile",
+            "(Ljava/lang/String;Ljava/lang/String;I)Ljava/lang/String;");
+    if(getfontfilemethod == NULL)
+        return fz_throw("cannot find method getFontFile() in fontProvider");
 
-	fontnamestring = (*env)->NewStringUTF(env, fontname);
-	collectionstring = (*env)->NewStringUTF(env, collection);
+    fontnamestring = (*env)->NewStringUTF(env, fontname);
+    collectionstring = (*env)->NewStringUTF(env, collection);
 
-	fontfilestring = (*env)->CallObjectMethod(
-			env, fontprovider, getfontfilemethod,
-			fontnamestring,
-			collectionstring,
-			(jint) font->flags);
+    fontfilestring = (*env)->CallObjectMethod(
+            env, fontprovider, getfontfilemethod,
+            fontnamestring,
+            collectionstring,
+            (jint) font->flags);
 
-	/* TODO: release some references?!?
-	(*env)->DeleteLocalRef(env, fontnamestring);
-	(*env)->DeleteLocalRef(env, collectionstring);
-	*/
+    /* TODO: release some references?!?
+    (*env)->DeleteLocalRef(env, fontnamestring);
+    (*env)->DeleteLocalRef(env, collectionstring);
+    */
 
-	if(fontfilestring == NULL)
-		return fz_throw("could not get filename for font");
+    if(fontfilestring == NULL)
+        return fz_throw("could not get filename for font");
 
-	filenamebuf = (char *)(*env)->GetStringUTFChars(env, fontfilestring, &iscopy);
-	*filename = fz_strdup(filenamebuf);
-	(*env)->ReleaseStringUTFChars(env, fontfilestring, filenamebuf);
+    filenamebuf = (char *)(*env)->GetStringUTFChars(env, fontfilestring, &iscopy);
+    *filename = fz_strdup(filenamebuf);
+    (*env)->ReleaseStringUTFChars(env, fontfilestring, filenamebuf);
 
-	DEBUG("got font file: '%s'", *filename);
-	return fz_okay;
+    DEBUG("got font file: '%s'", *filename);
+    return fz_okay;
 }
 
 fz_error
 pdf_getfontbuffer(pdf_fontdesc *font, char *fontname, char *collection, unsigned char **data, unsigned int *len) {
-	JNIEnv *env;
-	jboolean iscopy;
-	jclass pdfrender;
-	jclass fontproviderclass;
-	jfieldID fontproviderfield;
-	jobject fontprovider;
-	jmethodID getfontbuffermethod;
-	jobject fontbuffer;
-	jstring fontnamestring;
-	jstring collectionstring;
+    JNIEnv *env;
+    jboolean iscopy;
+    jclass pdfrender;
+    jclass fontproviderclass;
+    jfieldID fontproviderfield;
+    jobject fontprovider;
+    jmethodID getfontbuffermethod;
+    jobject fontbuffer;
+    jstring fontnamestring;
+    jstring collectionstring;
 
-	DEBUG("pdf_getfontbuffer(%p, '%s', '%s')", font, fontname, collection);
+    DEBUG("pdf_getfontbuffer(%p, '%s', '%s')", font, fontname, collection);
 
-	if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
-		return fz_throw("cannot find our JNI env!");
+    if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
+        return fz_throw("cannot find our JNI env!");
 
-	pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
-	if(pdfrender == NULL)
-		return fz_throw("cannot find JNI interface class");
+    pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
+    if(pdfrender == NULL)
+        return fz_throw("cannot find JNI interface class");
 
-	fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
-			"fontProvider", "Lde/hilses/droidreader/FontProvider;");
-	if(fontproviderfield == NULL)
-		return fz_throw("cannot find fontProvider field");
+    fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
+            "fontProvider", "Lde/hilses/droidreader/FontProvider;");
+    if(fontproviderfield == NULL)
+        return fz_throw("cannot find fontProvider field");
 
-	fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
-	if(fontprovider == NULL)
-		return fz_throw("cannot access fontProvider field");
+    fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
+    if(fontprovider == NULL)
+        return fz_throw("cannot access fontProvider field");
 
-	fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
-	if(fontproviderclass == NULL)
-		return fz_throw("cannot get class for fontProvider field content");
+    fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
+    if(fontproviderclass == NULL)
+        return fz_throw("cannot get class for fontProvider field content");
 
-	getfontbuffermethod = (*env)->GetMethodID(env, fontproviderclass,
-			"getFontBuffer",
-			"(Ljava/lang/String;Ljava/lang/String;I)Ljava/nio/ByteBuffer;");
-	if(getfontbuffermethod == NULL)
-		return fz_throw("cannot find method getFontBuffer() in fontProvider");
+    getfontbuffermethod = (*env)->GetMethodID(env, fontproviderclass,
+            "getFontBuffer",
+            "(Ljava/lang/String;Ljava/lang/String;I)Ljava/nio/ByteBuffer;");
+    if(getfontbuffermethod == NULL)
+        return fz_throw("cannot find method getFontBuffer() in fontProvider");
 
-	fontnamestring = (*env)->NewStringUTF(env, fontname);
-	collectionstring = (*env)->NewStringUTF(env, collection);
+    fontnamestring = (*env)->NewStringUTF(env, fontname);
+    collectionstring = (*env)->NewStringUTF(env, collection);
 
-	fontbuffer = (*env)->CallObjectMethod(
-			env, fontprovider, getfontbuffermethod,
-			fontnamestring,
-			collectionstring,
-			(jint) font->flags);
+    fontbuffer = (*env)->CallObjectMethod(
+            env, fontprovider, getfontbuffermethod,
+            fontnamestring,
+            collectionstring,
+            (jint) font->flags);
 /* TODO: release some references?!?
-	(*env)->DeleteLocalRef(env, fontnamestring);
-	(*env)->DeleteLocalRef(env, collectionstring);
+    (*env)->DeleteLocalRef(env, fontnamestring);
+    (*env)->DeleteLocalRef(env, collectionstring);
 */
-	DEBUG("got font buffer: %d", fontbuffer);
+    DEBUG("got font buffer: %d", fontbuffer);
 
-	if(fontbuffer == NULL)
-		return fz_throw("could not get buffer for font");
+    if(fontbuffer == NULL)
+        return fz_throw("could not get buffer for font");
 
-	*data = (unsigned char *) (*env)->GetDirectBufferAddress(env, fontbuffer);
-	*len = (unsigned int) (*env)->GetDirectBufferCapacity(env, fontbuffer);
+    *data = (unsigned char *) (*env)->GetDirectBufferAddress(env, fontbuffer);
+    *len = (unsigned int) (*env)->GetDirectBufferCapacity(env, fontbuffer);
 
-	if((*data == NULL) || (*len == -1))
-		return fz_throw("could not get buffer for font (JNI trouble!)");
+    if((*data == NULL) || (*len == -1))
+        return fz_throw("could not get buffer for font (JNI trouble!)");
 
-	DEBUG("got font buffer: %p, length=%d", *data, *len);
-	return fz_okay;
+    DEBUG("got font buffer: %p, length=%d", *data, *len);
+    return fz_okay;
 }
 
 fz_error
 pdf_getcmapbuffer(char *cmapname, unsigned char **data, unsigned int *len) {
-	JNIEnv *env;
-	jboolean iscopy;
-	jclass pdfrender;
-	jclass fontproviderclass;
-	jfieldID fontproviderfield;
-	jobject fontprovider;
-	jmethodID getcmapbuffermethod;
-	jobject cmapbuffer;
-	jstring cmapnamestring;
+    JNIEnv *env;
+    jboolean iscopy;
+    jclass pdfrender;
+    jclass fontproviderclass;
+    jfieldID fontproviderfield;
+    jobject fontprovider;
+    jmethodID getcmapbuffermethod;
+    jobject cmapbuffer;
+    jstring cmapnamestring;
 
-	DEBUG("pdf_getcmapbuffer('%s')", cmapname);
+    DEBUG("pdf_getcmapbuffer('%s')", cmapname);
 
-	if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
-		return fz_throw("cannot find our JNI env!");
+    if((*cached_jvm)->GetEnv(cached_jvm, (void **)&env, JNI_VERSION_1_2) != JNI_OK)
+        return fz_throw("cannot find our JNI env!");
 
-	pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
-	if(pdfrender == NULL)
-		return fz_throw("cannot find JNI interface class");
+    pdfrender = (*env)->FindClass(env, "de/hilses/droidreader/PdfRender");
+    if(pdfrender == NULL)
+        return fz_throw("cannot find JNI interface class");
 
-	fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
-			"fontProvider", "Lde/hilses/droidreader/FontProvider;");
-	if(fontproviderfield == NULL)
-		return fz_throw("cannot find fontProvider field");
+    fontproviderfield = (*env)->GetStaticFieldID(env, pdfrender,
+            "fontProvider", "Lde/hilses/droidreader/FontProvider;");
+    if(fontproviderfield == NULL)
+        return fz_throw("cannot find fontProvider field");
 
-	fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
-	if(fontprovider == NULL)
-		return fz_throw("cannot access fontProvider field");
+    fontprovider = (*env)->GetStaticObjectField(env, pdfrender, fontproviderfield);
+    if(fontprovider == NULL)
+        return fz_throw("cannot access fontProvider field");
 
-	fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
-	if(fontproviderclass == NULL)
-		return fz_throw("cannot get class for fontProvider field content");
+    fontproviderclass = (*env)->GetObjectClass(env, fontprovider);
+    if(fontproviderclass == NULL)
+        return fz_throw("cannot get class for fontProvider field content");
 
-	getcmapbuffermethod = (*env)->GetMethodID(env, fontproviderclass,
-			"getCMapBuffer",
-			"(Ljava/lang/String;)Ljava/nio/ByteBuffer;");
-	if(getcmapbuffermethod == NULL)
-		return fz_throw("cannot find method getCMapBuffer() in fontProvider");
+    getcmapbuffermethod = (*env)->GetMethodID(env, fontproviderclass,
+            "getCMapBuffer",
+            "(Ljava/lang/String;)Ljava/nio/ByteBuffer;");
+    if(getcmapbuffermethod == NULL)
+        return fz_throw("cannot find method getCMapBuffer() in fontProvider");
 
-	cmapnamestring = (*env)->NewStringUTF(env, cmapname);
+    cmapnamestring = (*env)->NewStringUTF(env, cmapname);
 
-	cmapbuffer = (*env)->CallObjectMethod(
-			env, fontprovider, getcmapbuffermethod,
-			cmapnamestring);
+    cmapbuffer = (*env)->CallObjectMethod(
+            env, fontprovider, getcmapbuffermethod,
+            cmapnamestring);
 /* TODO: release some references?!?
-	(*env)->DeleteLocalRef(env, cmapnamestring);
+    (*env)->DeleteLocalRef(env, cmapnamestring);
 */
-	DEBUG("got cmap buffer: %d", cmapbuffer);
+    DEBUG("got cmap buffer: %d", cmapbuffer);
 
-	if(cmapbuffer == NULL)
-		return fz_throw("could not get buffer for cmap");
+    if(cmapbuffer == NULL)
+        return fz_throw("could not get buffer for cmap");
 
-	*data = (unsigned char *) (*env)->GetDirectBufferAddress(env, cmapbuffer);
-	*len = (unsigned int) (*env)->GetDirectBufferCapacity(env, cmapbuffer);
+    *data = (unsigned char *) (*env)->GetDirectBufferAddress(env, cmapbuffer);
+    *len = (unsigned int) (*env)->GetDirectBufferCapacity(env, cmapbuffer);
 
-	if((*data == NULL) || (*len == -1))
-		return fz_throw("could not get buffer for cmap (JNI trouble!)");
+    if((*data == NULL) || (*len == -1))
+        return fz_throw("could not get buffer for cmap (JNI trouble!)");
 
-	DEBUG("got cmap buffer: %p, length=%d (%d)", *data, *len, strlen(*data));
-	return fz_okay;
+    DEBUG("got cmap buffer: %p, length=%d (%d)", *data, *len, strlen(*data));
+    return fz_okay;
 }
 
 /* JNI Interface: */
 
 jint JNI_OnLoad(JavaVM *jvm, void *reserved)
 {
-	DEBUG("initializing PdfRender JNI library based on MuPDF");
+    DEBUG("initializing PdfRender JNI library based on MuPDF");
 
-	/* Fitz library setup */
-	fz_accelerate();
-	glyphcache = fz_newglyphcache();
+    /* Fitz library setup */
+    fz_accelerate();
+    glyphcache = fz_newglyphcache();
 
-	/* Store the JVM */
-	cached_jvm = jvm;
+    /* Store the JVM */
+    cached_jvm = jvm;
 
-	return JNI_VERSION_1_2;
+    return JNI_VERSION_1_2;
 }
 
 void JNI_OnUnload(JavaVM *jvm, void *reserved)
 {
-	DEBUG("Cleaning up PdfRender JNI library");
+    DEBUG("Cleaning up PdfRender JNI library");
 
-	/* Fitz library cleanup */
-	fz_freeglyphcache(glyphcache);
-	glyphcache = (fz_glyphcache *)0;
+    /* Fitz library cleanup */
+    fz_freeglyphcache(glyphcache);
+    glyphcache = (fz_glyphcache *)0;
 
-	/* Wipe the stored JVM so that any accesses will break loudly */
-	cached_jvm = (JavaVM *)0;
+    /* Wipe the stored JVM so that any accesses will break loudly */
+    cached_jvm = (JavaVM *)0;
 }
 
 JNIEXPORT jint JNICALL
-	Java_de_hilses_droidreader_PdfRender_checkFont
-	(JNIEnv *env, jobject class, jstring fname)
+    Java_de_hilses_droidreader_PdfRender_checkFont
+    (JNIEnv *env, jobject class, jstring fname)
 {
-	char *filename;
-	jboolean iscopy;
-	int result = 1;
-	FILE *fd;
+    char *filename;
+    jboolean iscopy;
+    int result = 1;
+    FILE *fd;
 
-	filename = (char *)(*env)->GetStringUTFChars(env, fname, &iscopy);
+    filename = (char *)(*env)->GetStringUTFChars(env, fname, &iscopy);
 
-	fd = fopen(filename, "r");
-	if(fd) {
-		fclose(fd);
-		result = 0;
-	} else {
-		result = errno;
-	}
+    fd = fopen(filename, "r");
+    if(fd) {
+        fclose(fd);
+        result = 0;
+    } else {
+        result = errno;
+    }
 
-	(*env)->ReleaseStringUTFChars(env, fname, filename);
-	return (jint) result;
+    (*env)->ReleaseStringUTFChars(env, fname, filename);
+    return (jint) result;
 }
 
 JNIEXPORT jlong JNICALL
-	Java_de_hilses_droidreader_PdfDocument_nativeOpen
-	(JNIEnv *env, jobject this,
-			jint fitzmemory, jstring fname, jstring pwd)
+    Java_de_hilses_droidreader_PdfDocument_nativeOpen
+    (JNIEnv *env, jobject this,
+            jint fitzmemory, jstring fname, jstring pwd)
 {
-	DEBUG("PdfDocument(%p).nativeOpen(%i, \"%p\", \"%p\")",
-			this, fitzmemory, fname, pwd);
+    DEBUG("PdfDocument(%p).nativeOpen(%i, \"%p\", \"%p\")",
+            this, fitzmemory, fname, pwd);
 
-	fz_error error;
-	fz_obj *obj;
-	renderdocument_t *doc;
-	jboolean iscopy;
-	jclass cls;
-	jfieldID fid;
-	char *filename;
-	char *password;
-	fz_obj *info;
-	
-	filename = (char *)(*env)->GetStringUTFChars(env, fname, &iscopy);
-	password = (char *)(*env)->GetStringUTFChars(env, pwd, &iscopy);
+    fz_error error;
+    fz_obj *obj;
+    renderdocument_t *doc;
+    jboolean iscopy;
+    jclass cls;
+    jfieldID fid;
+    char *filename;
+    char *password;
+    fz_obj *info;
+    int i;
 
-	doc = fz_malloc(sizeof(renderdocument_t));
-	if(!doc) {
-		throw_exception(env, EXC, "Out of Memory");
-		goto cleanup;
-	}
-	memset (doc, 0, sizeof(renderdocument_t));
+    filename = (char *)(*env)->GetStringUTFChars(env, fname, &iscopy);
+    password = (char *)(*env)->GetStringUTFChars(env, pwd, &iscopy);
 
-	/*
-	 * Open PDF and load xref table. Note that if pdf_needspassword() is going
-	 * to be called later, the password parameter to pdf_openxref() must be
-	 * NULL or else pdf_needspassword() will cause a segfault.
-	 */
-	error = pdf_openxref(&doc->xref, filename, NULL);
-	if (error) {
-		fz_catch(error, "cannot open document.");
-		goto cleanup;
-	}
+    /* Don't need to check the return value from fz_malloc, because
+     * fz_malloc abort()s if the allocation fails.
+     */
+    doc = fz_malloc(sizeof(renderdocument_t));
+    memset (doc, 0, sizeof(renderdocument_t));
 
-	/* If the document needs a password: if a password has been supplied then
-	 * try authenticating it. If a password hasn't been supplied, indicate
-	 * that a password is needed.
-	 */
-	if (pdf_needspassword(doc->xref)) {
-		if(strlen(password)) {
-			int ok = pdf_authenticatepassword(doc->xref, password);
-			if(!ok) {
-				throw_exception(env, EXC_WRONG_PASSWORD,
-						"Wrong password given");
-				goto cleanup;
-			}
-		} else {
-			throw_exception(env, EXC_NEED_PASSWORD,
-					"PDF needs a password!");
-			goto cleanup;
-		}
-	}
+    for (i=0;i<NUM_CACHE_STRUCTS;i++) {
+        doc->pages[i] = fz_malloc(sizeof(renderpage_t));
+        memset (doc->pages[i],0,sizeof(renderpage_t));
+    }
 
-	/* Load the pdf page tree. */
-	error = pdf_loadpagetree(doc->xref);
-	if (error) {
-		fz_catch(error, "cannot load page tree.");
-		goto cleanup;
-	}
+    /*
+     * Open PDF and load xref table. Note that if pdf_needspassword() is going
+     * to be called later, the password parameter to pdf_openxref() must be
+     * NULL or else pdf_needspassword() will cause a segfault.
+     */
+    error = pdf_openxref(&doc->xref, filename, NULL);
+    if (error) {
+        fz_catch(error, "cannot open document.");
+        goto cleanup;
+    }
 
-	/*
-	 * Load document metadata (at some point this might be implemented
-	 * in the muPDF lib itself)
-	 */
-	obj = fz_dictgets(doc->xref->trailer, "Root");
-	obj = fz_resolveindirect(obj);
-	if (!obj) {
-		fz_throw("syntaxerror: missing Root object");
-		throw_exception(env, EXC_CANNOT_DECRYPTXREF, 
-				"PDF syntax: missing \"Root\" object");
-		goto cleanup;
-	}
+    /* If the document needs a password: if a password has been supplied then
+     * try authenticating it. If a password hasn't been supplied, indicate
+     * that a password is needed.
+     */
+    if (pdf_needspassword(doc->xref)) {
+        if(strlen(password)) {
+            int ok = pdf_authenticatepassword(doc->xref, password);
+            if(!ok) {
+                throw_exception(env, EXC_WRONG_PASSWORD,
+                        "Wrong password given");
+                goto cleanup;
+            }
+        } else {
+            throw_exception(env, EXC_NEED_PASSWORD,
+                    "PDF needs a password!");
+            goto cleanup;
+        }
+    }
 
-	cls = (*env)->GetObjectClass(env, this);
+    /* Load the pdf page tree. */
+    error = pdf_loadpagetree(doc->xref);
+    if (error) {
+        fz_catch(error, "cannot load page tree.");
+        goto cleanup;
+    }
 
-	obj = fz_dictgets(doc->xref->trailer, "Info");
-	info = fz_resolveindirect(obj);
-	if (info) {
-		obj = fz_dictgets(info, "Title");
-		if (obj) {
-			fid = (*env)->GetFieldID(env, cls, "metaTitle",
-					"Ljava/lang/String;");
-			if(fid) {
-				jstring jstr = (*env)->NewStringUTF(env, pdf_toutf8(obj));
-				(*env)->SetObjectField(env, this, fid, jstr);
-			}
-		}
-	}
+    /*
+     * Load document metadata (at some point this might be implemented
+     * in the muPDF lib itself)
+     */
+    obj = fz_dictgets(doc->xref->trailer, "Root");
+    obj = fz_resolveindirect(obj);
+    if (!obj) {
+        fz_throw("syntaxerror: missing Root object");
+        throw_exception(env, EXC_CANNOT_DECRYPTXREF,
+                "PDF syntax: missing \"Root\" object");
+        goto cleanup;
+    }
 
-	/* TODO: read outline and pass to Java env or create accessor functions */
-	
-	fid = (*env)->GetFieldID(env, cls, "pagecount","I");
-	if(fid) {
-		(*env)->SetIntField(env, this, fid, pdf_getpagecount(doc->xref));
-	} else {
-		throw_exception(env, EXC, "cannot access instance fields!");
-	}
+    cls = (*env)->GetObjectClass(env, this);
+
+    obj = fz_dictgets(doc->xref->trailer, "Info");
+    info = fz_resolveindirect(obj);
+    if (info) {
+        obj = fz_dictgets(info, "Title");
+        if (obj) {
+            fid = (*env)->GetFieldID(env, cls, "metaTitle",
+                    "Ljava/lang/String;");
+            if(fid) {
+                jstring jstr = (*env)->NewStringUTF(env, pdf_toutf8(obj));
+                (*env)->SetObjectField(env, this, fid, jstr);
+            }
+        }
+    }
+
+    /* TODO: read outline and pass to Java env or create accessor functions */
+
+    fid = (*env)->GetFieldID(env, cls, "pagecount","I");
+    if(fid) {
+        (*env)->SetIntField(env, this, fid, pdf_getpagecount(doc->xref));
+    } else {
+        throw_exception(env, EXC, "cannot access instance fields!");
+    }
 
 cleanup:
-	(*env)->ReleaseStringUTFChars(env, fname, filename);
-	(*env)->ReleaseStringUTFChars(env, pwd, password);
+    (*env)->ReleaseStringUTFChars(env, fname, filename);
+    (*env)->ReleaseStringUTFChars(env, pwd, password);
 
-	DEBUG("PdfDocument.nativeOpen(): return handle = %p", doc);
-	return (jlong)(unsigned long) doc;
+    DEBUG("PdfDocument.nativeOpen(): return handle = %p", doc);
+    return (jlong)(unsigned long) doc;
 }
 
 JNIEXPORT void JNICALL
-	Java_de_hilses_droidreader_PdfDocument_nativeClose
-	(JNIEnv *env, jobject this, jlong handle)
+    Java_de_hilses_droidreader_PdfDocument_nativeClose
+    (JNIEnv *env, jobject this, jlong handle)
 {
-	renderdocument_t *doc = (renderdocument_t*)(unsigned long) handle;
-	DEBUG("PdfDocument(%p).nativeClose(%p)", this, doc);
+    renderdocument_t *doc = (renderdocument_t*)(unsigned long) handle;
+    int i;
 
-	/* Drop all the stuff that might have been loaded (should only be xref
-	 * at this stage)
-	 */
-	if(doc) {
-		if (doc->xref)
-			pdf_freexref(doc->xref);
+    DEBUG("PdfDocument(%p).nativeClose(%p)", this, doc);
 
-		fz_free(doc);
-	}
+    /* Drop all the stuff that might have been loaded */
+    if(doc) {
+        if (doc->xref)
+            pdf_freexref(doc->xref);
+
+        for (i=0;i<NUM_CACHE_STRUCTS;i++) {
+            if (doc->pages[i]) {
+                if (doc->pages[i]->list)
+                    fz_freedisplaylist(doc->pages[i]->list);
+                fz_free(doc->pages[i]);
+            }
+        }
+
+        fz_free(doc);
+    }
 }
 
 JNIEXPORT jint JNICALL
     Java_de_hilses_droidreader_PdfDocument_nativeIsMemoryHog
-    	(JNIEnv *env, jobject this, jlong handle)
+        (JNIEnv *env, jobject this, jlong handle)
 {
-	renderdocument_t *doc = (renderdocument_t*)(unsigned long) handle;
-	DEBUG("PdfDocument(%p).nativeIsMemoryHog(%p) will return %d", this, doc, doc->isMemoryHog);
+    renderdocument_t *doc = (renderdocument_t*)(unsigned long) handle;
+    DEBUG("PdfDocument(%p).nativeIsMemoryHog(%p) will return %d", this, doc, doc->isMemoryHog);
 
     return doc->isMemoryHog;
 }
 
 JNIEXPORT jlong JNICALL
-	Java_de_hilses_droidreader_PdfPage_nativeOpenPage
-	(JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jfloatArray contentbox, jint pageno, jint flags)
+    Java_de_hilses_droidreader_PdfPage_nativeOpenPage
+    (JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jfloatArray contentbox, jint pageno, jint flags)
 {
-	renderdocument_t *doc = (renderdocument_t*)(unsigned long) dochandle;
-	DEBUG("PdfPage(%p).nativeOpenPage(%p)", this, doc);
-	renderpage_t *page;
-	fz_error error;
-	fz_obj *obj = NULL;
-	fz_device *dev = NULL;
-	jclass cls;
-	jfieldID fid;
-	fz_rect content;
-	fz_displaynode *pDN;
-	jfloat *bbox;
+    renderdocument_t *doc = (renderdocument_t*)(unsigned long) dochandle;
+    renderpage_t *page = (renderpage_t *)0;
+    fz_device *dev = (fz_device *)0;
+    pdf_page *pdfpage = (pdf_page *)0;
+    jfloat *bbox;
+    jclass cls;
+    jfieldID fid;
+    int i;
 
-	page = fz_malloc(sizeof(renderpage_t));
-	if(!page) {
-		throw_exception(env, EXC, "Out of Memory");
-		return (jlong)(unsigned long) NULL;
-	}
+    DEBUG("PdfPage(%p).nativeOpenPage(%p)", this, doc);
 
-    if (flags & PDF_PAGE_MEMORY_HOG) {
-        if (doc->xref->store) {
-            pdf_freestore(doc->xref->store);
-            doc->xref->store = (pdf_store *)0;
+    doc->currentlyDisplayedPage = pageno;
+
+    /* First, see if we've already got the page loaded in the cache */
+    for (i=0;i<NUM_CACHE_STRUCTS;i++) {
+        if (doc->pages[i]->pageNo == pageno) {
+            page = doc->pages[i];
+            __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Re-using pages[%d] for page %d",i,pageno);
+            break;
         }
     }
 
-    if (!doc->xref->store)
-        doc->xref->store = pdf_newstore();
+    if (!page) {
+        fz_error error;
+        fz_obj *obj = NULL;
+        fz_displaynode *pDN;
+        fz_rect content;
+        int chosen = 0;
+        int i;
 
-	if (!(flags & PDF_PAGE_MEMORY_HOG))
-        pdf_agestore(doc->xref->store, 2);
+        /* The page we want isn't currently loaded. Choose a page struct
+         * to load it into. How this works:
+         * 1) If the pageNo for a struct is 0, then this struct hasn't been
+         *    used - so use it.
+         * 2) Otherwise, find the page whose page number is furthest from the
+         *    page number to be loaded
+         * 3) If there are multiple pages whose numbers are the same distance
+         *    from the page number to be loaded, use the page with the
+         *    lowest number (this will be earlier in the document than the
+         *    page to be loaded).
+         * Note that this is written to allow more than 2 entries in the
+         * struct cache.
+         */
 
-    fz_start_tracing(doc->xref->store);
+        /* Assume struct 0 to start with. If it's blank, use it. */
+        if (doc->pages[0]->pageNo)
+        {
+            /* Iterate through the other structs */
+            for (i=1;i<2;i++)
+            {
+                /* If there's a blank struct, use it */
+                if (doc->pages[i]->pageNo)
+                {
+                    /* Neither this one nor the currently chosen one is blank.
+                     * Find the difference between the page numbers in the
+                     * structs, and the page to be loaded.
+                     */
+                    int dist0 = pageno - doc->pages[chosen]->pageNo;
+                    int dist1 = pageno - doc->pages[i]->pageNo;
 
-	obj = pdf_getpageobject(doc->xref, pageno);
-	error = pdf_loadpage(&page->page, doc->xref, obj);
-	if (error) {
-		throw_exception(env, EXC_PAGELOAD, "error loading page");
-		goto cleanup;
-	}
-	page->list = fz_newdisplaylist();
+                    if (dist0<0) dist0 = -dist0;
+                    if (dist1<0) dist1 = -dist1;
 
-	dev = fz_newlistdevice(page->list);
-	error = pdf_runpage(doc->xref, page->page, dev, fz_identity);
-	if (error) {
-		throw_exception(env, EXC_PAGELOAD, "error running page");
-		goto cleanup;
-	}
+                    /* If this struct has a bigger difference than the currently
+                     * chosen one, choose this one instead.
+                     */
+                    if (dist1 > dist0)
+                        chosen = i;
+                    else {
+                        /* If the differences are the same, choose the one with
+                         * the lower page number.
+                         */
+                        if (dist0 == dist1) {
+                            if (doc->pages[i]->pageNo < doc->pages[chosen]->pageNo)
+                                chosen = i;
+                        }
+                    }
+                }
+                else
+                    chosen = i;
+            }
+        }
 
-	bbox = (*env)->GetPrimitiveArrayCritical(env, mediabox, 0);
-	if(bbox == NULL) {
-		throw_exception(env, EXC, "out of memory");
-		goto cleanup;
-	}
+        __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Loading page %d into pages[%d]",pageno,chosen);
+        page = doc->pages[chosen];
 
-	bbox[0] = page->page->mediabox.x0;
-	bbox[1] = page->page->mediabox.y0;
-	bbox[2] = page->page->mediabox.x1;
-	bbox[3] = page->page->mediabox.y1;
-	(*env)->ReleasePrimitiveArrayCritical(env, mediabox, bbox, 0);
+        /* Release the old content of the page, if any */
+        if (page->list) {
+            fz_freedisplaylist(page->list);
+        }
 
-	pDN = page->list->first;
-	if (pDN) {
-		content.x0 = pDN->rect.x0;
-		content.y0 = pDN->rect.y0;
-		content.x1 = pDN->rect.x1;
-		content.y1 = pDN->rect.y1;
-	}
+        page->pageNo = pageno;
 
-	while (pDN) {
-		if (!((fabs(pDN->rect.x0) < 0.1) &&
-		      (fabs(pDN->rect.y0) < 0.1) &&
-			  (fabs(pDN->rect.x1) < 0.1) &&
-			  (fabs(pDN->rect.y1) < 0.1))) {
-			if (pDN->rect.x0 < content.x0)
-				content.x0 = pDN->rect.x0;
-			if (pDN->rect.y0 < content.y0)
-				content.y0 = pDN->rect.y0;
-			if (pDN->rect.x1 > content.x1)
-				content.x1 = pDN->rect.x1;
-			if (pDN->rect.y1 > content.y1)
-				content.y1 = pDN->rect.y1;
-		}
-		pDN = pDN->next;
-	}
+        if (flags & PDF_PAGE_MEMORY_HOG) {
+            if (doc->xref->store) {
+                pdf_freestore(doc->xref->store);
+                doc->xref->store = (pdf_store *)0;
+            }
+        }
 
-	bbox = (*env)->GetPrimitiveArrayCritical(env, contentbox, 0);
-	if(bbox == NULL) {
-		throw_exception(env, EXC, "out of memory");
-		goto cleanup;
-	}
-	bbox[0] = content.x0;
-	bbox[1] = content.y0;
-	bbox[2] = content.x1;
-	bbox[3] = content.y1;
-	(*env)->ReleasePrimitiveArrayCritical(env, contentbox, bbox, 0);
+        if (!doc->xref->store)
+            doc->xref->store = pdf_newstore();
 
-    /* If the document's memory allocation was above the threshold set in
-     * fitz/base_memory.c, set the "memory hog" flag. Note, don't clear it if
-     * it was already set.
+        if (!(flags & PDF_PAGE_MEMORY_HOG))
+            pdf_agestore(doc->xref->store, 3);
+
+        fz_start_tracing(doc->xref->store);
+
+        obj = pdf_getpageobject(doc->xref, pageno);
+        error = pdf_loadpage(&pdfpage, doc->xref, obj);
+        if (error) {
+            throw_exception(env, EXC_PAGELOAD, "error loading page");
+            goto cleanup;
+        }
+
+        page->list = fz_newdisplaylist();
+        dev = fz_newlistdevice(page->list);
+        error = pdf_runpage(doc->xref, pdfpage, dev, fz_identity);
+        if (error) {
+            throw_exception(env, EXC_PAGELOAD, "error running page");
+            goto cleanup;
+        }
+
+        page->pagebox.x0 = pdfpage->mediabox.x0;
+        page->pagebox.y0 = pdfpage->mediabox.y0;
+        page->pagebox.x1 = pdfpage->mediabox.x1;
+        page->pagebox.y1 = pdfpage->mediabox.y1;
+
+        pDN = page->list->first;
+        if (pDN) {
+            content.x0 = pDN->rect.x0;
+            content.y0 = pDN->rect.y0;
+            content.x1 = pDN->rect.x1;
+            content.y1 = pDN->rect.y1;
+        }
+
+        while (pDN) {
+            if ( (fabs(pDN->rect.x1 - pDN->rect.x0) > 0.1) &&
+                 (fabs(pDN->rect.y1 - pDN->rect.y0) > 0.1) ) {
+                if (pDN->rect.x0 < content.x0)
+                    content.x0 = pDN->rect.x0;
+                if (pDN->rect.y0 < content.y0)
+                    content.y0 = pDN->rect.y0;
+                if (pDN->rect.x1 > content.x1)
+                    content.x1 = pDN->rect.x1;
+                if (pDN->rect.y1 > content.y1)
+                    content.y1 = pDN->rect.y1;
+            }
+            pDN = pDN->next;
+        }
+
+        page->contentbox.x0 = content.x0;
+        page->contentbox.y0 = content.y0;
+        page->contentbox.x1 = content.x1;
+        page->contentbox.y1 = content.y1;
+
+        /* If the document's memory allocation was above the threshold set in
+         * fitz/base_memory.c, set the "memory hog" flag. Note, don't clear it if
+         * it was already set.
+         */
+        doc->isMemoryHog |= fz_stop_tracing();
+
+        page->rotate = pdfpage->rotate;
+    }
+
+    /* Now copy the page information back to the Java environment, whether it
+     * came from the cache or from a newly-loaded page
      */
-    doc->isMemoryHog |= fz_stop_tracing();
+    bbox = (*env)->GetPrimitiveArrayCritical(env, mediabox, 0);
+    if(bbox == NULL) {
+        throw_exception(env, EXC, "out of memory");
+        goto cleanup;
+    }
 
-	cls = (*env)->GetObjectClass(env, this);
-	fid = (*env)->GetFieldID(env, cls, "rotate","I");
-	if(fid) {
-		(*env)->SetIntField(env, this, fid, page->page->rotate);
-	} else {
-		throw_exception(env, EXC, "cannot access instance fields!");
-	}
+    bbox[0] = page->pagebox.x0;
+    bbox[1] = page->pagebox.y0;
+    bbox[2] = page->pagebox.x1;
+    bbox[3] = page->pagebox.y1;
+    (*env)->ReleasePrimitiveArrayCritical(env, mediabox, bbox, 0);
+
+    bbox = (*env)->GetPrimitiveArrayCritical(env, contentbox, 0);
+    if(bbox == NULL) {
+        throw_exception(env, EXC, "out of memory");
+        goto cleanup;
+    }
+    bbox[0] = page->contentbox.x0;
+    bbox[1] = page->contentbox.y0;
+    bbox[2] = page->contentbox.x1;
+    bbox[3] = page->contentbox.y1;
+    (*env)->ReleasePrimitiveArrayCritical(env, contentbox, bbox, 0);
+
+    cls = (*env)->GetObjectClass(env, this);
+    fid = (*env)->GetFieldID(env, cls, "rotate","I");
+    if(fid) {
+        (*env)->SetIntField(env, this, fid, page->rotate);
+    } else {
+        throw_exception(env, EXC, "cannot access instance fields!");
+    }
 
 cleanup:
-	if (dev) {
-		fz_freedevice(dev);
-	}
+    if (dev)
+        fz_freedevice(dev);
 
-	if (page->page) {
-		pdf_freepage(page->page);
-		page->page = (pdf_page *)0;
-	}
+    if (pdfpage)
+        pdf_freepage(pdfpage);
 
-	return (jlong)(unsigned long) page;
+    return (jlong)(unsigned long) page;
 }
 
 JNIEXPORT void JNICALL
-	Java_de_hilses_droidreader_PdfPage_nativeClosePage
-	(JNIEnv *env, jobject this, jlong handle)
+    Java_de_hilses_droidreader_PdfPage_nativeClosePage
+    (JNIEnv *env, jobject this, jlong handle)
 {
-	renderpage_t *page = (renderpage_t*)(unsigned long) handle;
-	if(page) {
-		if (page->list) {
-			fz_freedisplaylist(page->list);
-		}
-
-		fz_free(page);
-	}
+    /* Nothing to do! */
 }
 
 JNIEXPORT void JNICALL
-	Java_de_hilses_droidreader_PdfView_nativeCreateView
-	(JNIEnv *env, jobject this, jlong dochandle, jlong pagehandle,
-		jintArray viewboxarray, jfloatArray matrixarray,
-		jintArray bufferarray, jlong flags)
+    Java_de_hilses_droidreader_PdfView_nativeCreateView
+    (JNIEnv *env, jobject this, jlong dochandle, jlong pagehandle,
+        jintArray viewboxarray, jfloatArray matrixarray,
+        jintArray bufferarray, jlong flags)
 {
-	renderdocument_t *doc = (renderdocument_t*)(unsigned long) dochandle;
-	renderpage_t *page = (renderpage_t*)(unsigned long) pagehandle;
-	fz_matrix ctm;
-	fz_bbox viewbox;
-	fz_device *dev;
-	jfloat *matrix;
-	jint *viewboxarr;
-	jint *dimen;
-	jint *buffer;
-	int length, val;
-	fz_pixmap pixmap;
-	int i,j;
+    renderpage_t *page = (renderpage_t*)(unsigned long) pagehandle;
+    fz_matrix ctm;
+    fz_bbox viewbox;
+    fz_device *dev;
+    jfloat *matrix;
+    jint *viewboxarr;
+    jint *dimen;
+    jint *buffer;
+    int length, val;
+    fz_pixmap pixmap;
+    int i,j;
 
-	DEBUG("PdfView(%p).nativeCreateView(%p, %p)", this, doc, page);
-	
-	/* initialize parameter arrays for MuPDF */
-	matrix = (*env)->GetPrimitiveArrayCritical(env, matrixarray, 0);
-	ctm.a = matrix[0];
-	ctm.b = matrix[1];
-	ctm.c = matrix[2];
-	ctm.d = matrix[3];
-	ctm.e = matrix[4];
-	ctm.f = matrix[5];
-	(*env)->ReleasePrimitiveArrayCritical(env, matrixarray, matrix, 0);
-	DEBUG("Matrix: %f %f %f %f %f %f",
-			ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
+    DEBUG("PdfView(%p).nativeCreateView(%p)", this, page);
 
-	viewboxarr = (*env)->GetPrimitiveArrayCritical(env, viewboxarray, 0);
-	viewbox.x0 = viewboxarr[0];
-	viewbox.y0 = viewboxarr[1];
-	viewbox.x1 = viewboxarr[2];
-	viewbox.y1 = viewboxarr[3];
-	(*env)->ReleasePrimitiveArrayCritical(env, viewboxarray, viewboxarr, 0);
-	DEBUG("Viewbox: %d %d %d %d",
-			viewbox.x0, viewbox.y0, viewbox.x1, viewbox.y1);
+    /* initialize parameter arrays for MuPDF */
+    matrix = (*env)->GetPrimitiveArrayCritical(env, matrixarray, 0);
+    ctm.a = matrix[0];
+    ctm.b = matrix[1];
+    ctm.c = matrix[2];
+    ctm.d = matrix[3];
+    ctm.e = matrix[4];
+    ctm.f = matrix[5];
+    (*env)->ReleasePrimitiveArrayCritical(env, matrixarray, matrix, 0);
+    DEBUG("Matrix: %f %f %f %f %f %f",
+            ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
 
-	/* do the rendering */
-	buffer = (*env)->GetPrimitiveArrayCritical(env, bufferarray, 0);
+    viewboxarr = (*env)->GetPrimitiveArrayCritical(env, viewboxarray, 0);
+    viewbox.x0 = viewboxarr[0];
+    viewbox.y0 = viewboxarr[1];
+    viewbox.x1 = viewboxarr[2];
+    viewbox.y1 = viewboxarr[3];
+    (*env)->ReleasePrimitiveArrayCritical(env, viewboxarray, viewboxarr, 0);
+    DEBUG("Viewbox: %d %d %d %d",
+            viewbox.x0, viewbox.y0, viewbox.x1, viewbox.y1);
 
-	pixmap.x = viewbox.x0;
-	pixmap.y = viewbox.y0;
-	pixmap.w = viewbox.x1 - viewbox.x0;
-	pixmap.h = viewbox.y1 - viewbox.y0;
-	pixmap.refs = 1;
-	pixmap.n = 4;
-	pixmap.colorspace = fz_devicebgr;
-	pixmap.mask = 0;
-	pixmap.samples = (void*)buffer;
+    /* do the rendering */
+    buffer = (*env)->GetPrimitiveArrayCritical(env, bufferarray, 0);
 
-	// white:
-	j = pixmap.w * pixmap.h;
-	for (i=0;i<j;i++)
-		buffer[i] = 0xffffffff;
+    pixmap.x = viewbox.x0;
+    pixmap.y = viewbox.y0;
+    pixmap.w = viewbox.x1 - viewbox.x0;
+    pixmap.h = viewbox.y1 - viewbox.y0;
+    pixmap.refs = 1;
+    pixmap.n = 4;
+    pixmap.colorspace = fz_devicebgr;
+    pixmap.mask = 0;
+    pixmap.samples = (void*)buffer;
 
-	dev = fz_newdrawdevice(glyphcache, &pixmap);
-	fz_executedisplaylist(page->list, dev, ctm);
-	fz_freedevice(dev);
+    // white:
+    j = pixmap.w * pixmap.h;
+    for (i=0;i<j;i++)
+        buffer[i] = 0xffffffff;
 
-	if (flags & PDF_RENDER_DISPLAY_INVERT) {
-		for (i=0;i<j;i++)
-			buffer[i] ^= 0xffffffff;
-	}
+    dev = fz_newdrawdevice(glyphcache, &pixmap);
+    fz_executedisplaylist(page->list, dev, ctm);
+    fz_freedevice(dev);
 
-	(*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
+    if (flags & PDF_RENDER_DISPLAY_INVERT) {
+        for (i=0;i<j;i++)
+            buffer[i] ^= 0xffffffff;
+    }
 
-	DEBUG("PdfView.nativeCreateView() done");
+    (*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
+
+    DEBUG("PdfView.nativeCreateView() done");
 }
