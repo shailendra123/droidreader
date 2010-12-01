@@ -181,17 +181,7 @@ public class DroidReaderActivity extends Activity {
         if (!mLoadedDocument) {
             // No filename supplied and no saved instance state. Re-open the last document
             // that was viewed, if there was one.
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            mFilename = prefs.getString("last_open_file","");
-            if (mFilename != null) {
-                if ((mFilename.length() > 0) && ((new File(mFilename)).exists())) {
-                    // Don't URL-decode the filename, as that's presumably
-                    // already been done.
-                    mPassword="";
-                    openDocumentWithLookup();
-                    mLoadedDocument = true;
-                }
-            }
+            tryLoadLastFile();
         }
 
         if (!mLoadedDocument) {
@@ -294,7 +284,7 @@ public class DroidReaderActivity extends Activity {
         } else {
             this.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         }
-        
+
         mDocument.mHorizontalScrollLock = prefs.getBoolean("horizontal_scroll_lock",false);
     }
 
@@ -414,7 +404,22 @@ public class DroidReaderActivity extends Activity {
             break;
         case REQUEST_CODE_OPTION_DIALOG:
             readPreferences();
+            tryLoadLastFile();
             break;
+        }
+    }
+
+    protected void tryLoadLastFile() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        mFilename = prefs.getString("last_open_file","");
+        if (mFilename != null) {
+            if ((mFilename.length() > 0) && ((new File(mFilename)).exists())) {
+                // Don't URL-decode the filename, as that's presumably
+                // already been done.
+                mPassword="";
+                openDocumentWithLookup();
+                mLoadedDocument = true;
+            }
         }
     }
 
