@@ -25,11 +25,11 @@ the Free Software Foundation, either version 3 of the License, or
 #include <jni.h>
 
 #include <android/log.h>
-
 #include <errno.h>
 
 #include <fitz.h>
 #include <mupdf.h>
+#include <time.h>
 
 
 /************************************************************************/
@@ -393,6 +393,7 @@ JNIEXPORT jlong JNICALL
     char *password;
     fz_obj *info;
     int i;
+    clock_t end, start = clock();
 
     filename = (char *)(*env)->GetStringUTFChars(env, fname, &iscopy);
     password = (char *)(*env)->GetStringUTFChars(env, pwd, &iscopy);
@@ -484,6 +485,9 @@ JNIEXPORT jlong JNICALL
     }
 
 cleanup:
+    end = clock();
+    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Document %s Load = %10.7fsec",filename,((double) (end - start)) / CLOCKS_PER_SEC);
+
     (*env)->ReleaseStringUTFChars(env, fname, filename);
     (*env)->ReleaseStringUTFChars(env, pwd, password);
 
@@ -539,7 +543,8 @@ JNIEXPORT jlong JNICALL
     jclass cls;
     jfieldID fid;
     int i;
-
+    clock_t end, start = clock();
+ 
     DEBUG("PdfPage(%p).nativeOpenPage(%p)", this, doc);
 
     doc->currentlyDisplayedPage = pageno;
@@ -737,6 +742,9 @@ cleanup:
     if (pdfpage)
         pdf_freepage(pdfpage);
 
+    end = clock();
+    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Page %d Load = %10.7fsec",pageno,((double) (end - start)) / CLOCKS_PER_SEC);
+
     return (jlong)(unsigned long) page;
 }
 
@@ -764,6 +772,7 @@ JNIEXPORT void JNICALL
     int length, val;
     fz_pixmap pixmap;
     int i,j;
+    clock_t end, start = clock();
 
     DEBUG("PdfView(%p).nativeCreateView(%p)", this, page);
 
@@ -816,6 +825,8 @@ JNIEXPORT void JNICALL
     }
 
     (*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
+    end = clock();
+    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Render = %10.7fsec",((double) (end - start)) / CLOCKS_PER_SEC);
 
     DEBUG("PdfView.nativeCreateView() done");
 }
