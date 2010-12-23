@@ -95,8 +95,7 @@ LOCAL_SRC_FILES := \
 	openjpeg/libopenjpeg/t1.c \
 	openjpeg/libopenjpeg/t2.c \
 	openjpeg/libopenjpeg/tcd.c \
-	openjpeg/libopenjpeg/tgt.c \
-	openjpeg/libopenjpeg/opj_convert.c
+	openjpeg/libopenjpeg/tgt.c
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/openjpeg-overlay
@@ -170,7 +169,7 @@ include $(CLEAR_VARS)
 
 
 # freetype
-# (flat file hierarchy, use 
+# (flat file hierarchy, use
 # "cp .../freetype-.../src/*/*.[ch] freetype/"
 #  and copy over the full include/ subdirectory)
 
@@ -179,7 +178,7 @@ LOCAL_MODULE := freetype
 # Homepage: http://freetype.org/
 # Original License: GPL 2 (or its own, but for the purposes
 #                   of this project, GPL is fine)
-# 
+#
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/freetype-overlay/include \
@@ -238,7 +237,7 @@ LOCAL_MODULE := mupdf
 
 # Homepage: http://ccxvii.net/mupdf/
 # License: GPL 3
-# MuPDF is Copyright 2006-2009 Artifex Software, Inc. 
+# MuPDF is Copyright 2006-2009 Artifex Software, Inc.
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/freetype/include \
@@ -246,7 +245,6 @@ LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/jpeg-overlay \
 	$(LOCAL_PATH)/jbig2dec \
 	$(LOCAL_PATH)/openjpeg/libopenjpeg \
-	$(LOCAL_PATH)/mupdf/fitzdraw \
 	$(LOCAL_PATH)/mupdf/fitz \
 	$(LOCAL_PATH)/mupdf/mupdf \
 	$(LOCAL_PATH)
