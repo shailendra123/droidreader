@@ -146,7 +146,7 @@ class DroidReaderViewThread extends Thread {
 					// TODO: there's probably still a race-condition here between
 					// the check for pending interrupts and the sleep() which
 					// could lead to a not-handled repaint request:
-					if(!this.isInterrupted())
+					if(!this.interrupted())
 						Thread.sleep(3600000);
 				} catch (InterruptedException e) {
 					if(LOG) Log.d(TAG, "ViewThread woken up");
