@@ -113,23 +113,25 @@ LOCAL_MODULE := jpeg
 # Original License: see jpeg/README
 # Original Copyright (C) 1991-2009, Thomas G. Lane, Guido Vollbeding
 
+#	jpeg/jcapimin.c \
+#	jpeg/jcapistd.c \
+#	jpeg/jcarith.c \
+#	jpeg/jctrans.c \
+#	jpeg/jcparam.c \
+#	jpeg/jdatadst.c \
+#	jpeg/jcinit.c \
+#	jpeg/jcmaster.c \
+#	jpeg/jcmarker.c \
+#	jpeg/jcmainct.c \
+#	jpeg/jcprepct.c \
+#	jpeg/jccoefct.c \
+#	jpeg/jccolor.c \
+#	jpeg/jcsample.c \
+#	jpeg/jchuff.c \
+#	jpeg/jcdctmgr.c \
+
+
 LOCAL_SRC_FILES := \
-	jpeg/jcapimin.c \
-	jpeg/jcapistd.c \
-	jpeg/jcarith.c \
-	jpeg/jctrans.c \
-	jpeg/jcparam.c \
-	jpeg/jdatadst.c \
-	jpeg/jcinit.c \
-	jpeg/jcmaster.c \
-	jpeg/jcmarker.c \
-	jpeg/jcmainct.c \
-	jpeg/jcprepct.c \
-	jpeg/jccoefct.c \
-	jpeg/jccolor.c \
-	jpeg/jcsample.c \
-	jpeg/jchuff.c \
-	jpeg/jcdctmgr.c \
 	jpeg/jfdctfst.c \
 	jpeg/jfdctflt.c \
 	jpeg/jfdctint.c \
@@ -337,7 +339,8 @@ LOCAL_SRC_FILES := \
 	mupdf/fitz/dev_draw.c \
 	mupdf/fitz/dev_list.c \
 	mupdf/fitz/dev_null.c \
-	mupdf/fitz/dev_text.c
+	mupdf/fitz/dev_text.c \
+	mupdf/fitz/crypt_sha2.c
 
 # uses libz, which is officially supported for NDK API
 LOCAL_LDLIBS := -lz -llog
