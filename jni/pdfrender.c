@@ -31,7 +31,6 @@ the Free Software Foundation, either version 3 of the License, or
 #include <mupdf.h>
 #include <time.h>
 
-
 /************************************************************************/
 /* Macros: */
 
@@ -393,8 +392,9 @@ JNIEXPORT jlong JNICALL
     char *password;
     fz_obj *info;
     int i;
+#ifdef PDFRENDER_DEBUG
     clock_t end, start = clock();
-
+#endif
     filename = (char *)(*env)->GetStringUTFChars(env, fname, &iscopy);
     password = (char *)(*env)->GetStringUTFChars(env, pwd, &iscopy);
 
@@ -485,9 +485,10 @@ JNIEXPORT jlong JNICALL
     }
 
 cleanup:
+#ifdef PDFRENDER_DEBUG
     end = clock();
-    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Document %s Load = %10.7fsec",filename,((double) (end - start)) / CLOCKS_PER_SEC);
-
+    DEBUG("Document %s Load = %10.7fsec",filename,((double) (end - start)) / CLOCKS_PER_SEC);
+#endif
     (*env)->ReleaseStringUTFChars(env, fname, filename);
     (*env)->ReleaseStringUTFChars(env, pwd, password);
 
@@ -531,6 +532,22 @@ JNIEXPORT jint JNICALL
     return doc->isMemoryHog;
 }
 
+static void fixRect(fz_rect *rect)
+{
+    float temp;
+
+    if (rect->x1 < rect->x0) {
+        temp = rect->x0;
+        rect->x0 = rect->x1;
+        rect->x1 = temp;
+    }
+    if (rect->y1 < rect->y0) {
+        temp = rect->y0;
+        rect->y0 = rect->y1;
+        rect->y1 = temp;
+    }
+}
+
 JNIEXPORT jlong JNICALL
     Java_de_hilses_droidreader_PdfPage_nativeOpenPage
     (JNIEnv *env, jobject this, jlong dochandle, jfloatArray mediabox, jfloatArray contentbox, jint pageno, jint flags)
@@ -543,8 +560,10 @@ JNIEXPORT jlong JNICALL
     jclass cls;
     jfieldID fid;
     int i;
+#ifdef PDFRENDER_DEBUG
+    int itemcount = 0;
     clock_t end, start = clock();
- 
+#endif
     DEBUG("PdfPage(%p).nativeOpenPage(%p)", this, doc);
 
     doc->currentlyDisplayedPage = pageno;
@@ -553,7 +572,6 @@ JNIEXPORT jlong JNICALL
     for (i=0;i<NUM_CACHE_STRUCTS;i++) {
         if (doc->pages[i]->pageNo == pageno) {
             page = doc->pages[i];
-            __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Re-using pages[%d] for page %d",i,pageno);
             break;
         }
     }
@@ -619,7 +637,6 @@ JNIEXPORT jlong JNICALL
             }
         }
 
-        __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Loading page %d into pages[%d]",pageno,chosen);
         page = doc->pages[chosen];
 
         /* Release the old content of the page, if any */
@@ -659,38 +676,65 @@ JNIEXPORT jlong JNICALL
             goto cleanup;
         }
 
-        page->pagebox.x0 = pdfpage->mediabox.x0;
-        page->pagebox.y0 = pdfpage->mediabox.y0;
-        page->pagebox.x1 = pdfpage->mediabox.x1;
-        page->pagebox.y1 = pdfpage->mediabox.y1;
+        fixRect(&pdfpage->mediabox);
+        page->pagebox.x0 = page->contentbox.x1 = pdfpage->mediabox.x0;
+        page->pagebox.y0 = page->contentbox.y1 = pdfpage->mediabox.y0;
+        page->pagebox.x1 = page->contentbox.x0 = pdfpage->mediabox.x1;
+        page->pagebox.y1 = page->contentbox.y0 = pdfpage->mediabox.y1;
 
         pDN = page->list->first;
-        if (pDN) {
-            content.x0 = pDN->rect.x0;
-            content.y0 = pDN->rect.y0;
-            content.x1 = pDN->rect.x1;
-            content.y1 = pDN->rect.y1;
-        }
 
         while (pDN) {
-            if ( (fabs(pDN->rect.x1 - pDN->rect.x0) > 0.1) &&
-                 (fabs(pDN->rect.y1 - pDN->rect.y0) > 0.1) ) {
-                if (pDN->rect.x0 < content.x0)
-                    content.x0 = pDN->rect.x0;
-                if (pDN->rect.y0 < content.y0)
-                    content.y0 = pDN->rect.y0;
-                if (pDN->rect.x1 > content.x1)
-                    content.x1 = pDN->rect.x1;
-                if (pDN->rect.y1 > content.y1)
-                    content.y1 = pDN->rect.y1;
-            }
-            pDN = pDN->next;
-        }
+            int disregard_content;
 
-        page->contentbox.x0 = content.x0;
-        page->contentbox.y0 = content.y0;
-        page->contentbox.x1 = content.x1;
-        page->contentbox.y1 = content.y1;
+            if ((pDN->cmd == FZ_CMDFILLTEXT) ||
+                (pDN->cmd == FZ_CMDSTROKETEXT) ||
+                (pDN->cmd == FZ_CMDCLIPTEXT) ||
+                (pDN->cmd == FZ_CMDCLIPSTROKETEXT) ||
+                (pDN->cmd == FZ_CMDIGNORETEXT)) {
+                disregard_content = 1;
+                for (i=0;i<pDN->item.text->len;i++) {
+                    if (pDN->item.text->els[i].ucs > 32) {
+                        disregard_content = 0;
+                        break;
+                    }
+                }
+            } else
+                disregard_content = 0;
+
+            if ( (fabs(pDN->rect.x1 - pDN->rect.x0) < 0.1) ||
+                 (fabs(pDN->rect.y1 - pDN->rect.y0) < 0.1) )
+                disregard_content = 1;
+
+            if (!disregard_content) {
+                DEBUG("Command = %d, (%d,%d) - (%d,%d)",pDN->cmd,(int)pDN->rect.x0,(int)pDN->rect.y0,(int)pDN->rect.x1,(int)pDN->rect.y1);
+
+                if ((pDN->cmd == FZ_CMDFILLTEXT) ||
+                    (pDN->cmd == FZ_CMDSTROKETEXT) ||
+                    (pDN->cmd == FZ_CMDCLIPTEXT) ||
+                    (pDN->cmd == FZ_CMDCLIPSTROKETEXT) ||
+                    (pDN->cmd == FZ_CMDIGNORETEXT)) {
+                    for (i=0;i<pDN->item.text->len;i++)
+                        DEBUG("Char %d, gid = %d, ucs = %d, (%d,%d)",i,pDN->item.text->els[i].gid,pDN->item.text->els[i].ucs,(int)pDN->item.text->els[i].x,(int)pDN->item.text->els[i].y);
+                }
+
+                fixRect(&pDN->rect);
+
+                if ((pDN->rect.x0 < page->contentbox.x0) && (pDN->rect.x0 >= page->pagebox.x0))
+                    page->contentbox.x0 = pDN->rect.x0;
+                if ((pDN->rect.y0 < page->contentbox.y0) && (pDN->rect.y0 >= page->pagebox.y0))
+                    page->contentbox.y0 = pDN->rect.y0;
+                if ((pDN->rect.x1 > page->contentbox.x1) && (pDN->rect.x1 <= page->pagebox.x1))
+                    page->contentbox.x1 = pDN->rect.x1;
+                if ((pDN->rect.y1 > page->contentbox.y1) && (pDN->rect.y1 <= page->pagebox.y1))
+                    page->contentbox.y1 = pDN->rect.y1;
+            }
+
+            pDN = pDN->next;
+#ifdef PDFRENDER_DEBUG
+            itemcount++;
+#endif
+        }
 
         /* If the document's memory allocation was above the threshold set in
          * fitz/base_memory.c, set the "memory hog" flag. Note, don't clear it if
@@ -742,9 +786,10 @@ cleanup:
     if (pdfpage)
         pdf_freepage(pdfpage);
 
+#ifdef PDFRENDER_DEBUG
     end = clock();
-    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Page %d Load = %10.7fsec",pageno,((double) (end - start)) / CLOCKS_PER_SEC);
-
+    DEBUG("Page %d Load = %10.7fsec, %d items",pageno,((double) (end - start)) / CLOCKS_PER_SEC, itemcount);
+#endif
     return (jlong)(unsigned long) page;
 }
 
@@ -767,12 +812,10 @@ JNIEXPORT void JNICALL
     fz_device *dev;
     jfloat *matrix;
     jint *viewboxarr;
-    jint *dimen;
     jint *buffer;
     int length, val;
     fz_pixmap pixmap;
     int i,j;
-    clock_t end, start = clock();
 
     DEBUG("PdfView(%p).nativeCreateView(%p)", this, page);
 
@@ -794,8 +837,16 @@ JNIEXPORT void JNICALL
     viewbox.x1 = viewboxarr[2];
     viewbox.y1 = viewboxarr[3];
     (*env)->ReleasePrimitiveArrayCritical(env, viewboxarray, viewboxarr, 0);
-    DEBUG("Viewbox: %d %d %d %d",
+    DEBUG("Viewbox: (%d,%d) (%d,%d)",
             viewbox.x0, viewbox.y0, viewbox.x1, viewbox.y1);
+
+    DEBUG("Content box: (%d,%d) (%d,%d)",
+            (int)page->contentbox.x0, (int)page->contentbox.y0,
+            (int)page->contentbox.x1, (int)page->contentbox.y1);
+    DEBUG("Page box: (%d,%d) (%d,%d)",
+            (int)page->pagebox.x0, (int)page->pagebox.y0,
+            (int)page->pagebox.x1, (int)page->pagebox.y1);
+    DEBUG("Zoom: %5.3f",zoom);
 
     /* do the rendering */
     buffer = (*env)->GetPrimitiveArrayCritical(env, bufferarray, 0);
@@ -825,8 +876,6 @@ JNIEXPORT void JNICALL
     }
 
     (*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
-    end = clock();
-    __android_log_print(ANDROID_LOG_DEBUG, "PdfRender", "Render = %10.7fsec",((double) (end - start)) / CLOCKS_PER_SEC);
 
     DEBUG("PdfView.nativeCreateView() done");
 }

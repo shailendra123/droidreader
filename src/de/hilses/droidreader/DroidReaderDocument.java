@@ -111,6 +111,11 @@ public class DroidReaderDocument {
 	 */
 	protected static final float ZOOM_FIT_HEIGHT = -3F;
 
+    protected static final int CONTENT_FIT_NONE = 0;
+    protected static final int CONTENT_FIT_ALL = 1;
+    protected static final int CONTENT_FIT_WIDTH = 2;
+    protected static final int CONTENT_FIT_HEIGHT = 3;
+
 	protected static final int RENDER_NOW = 0;
 
 	protected static final int RENDER_LAZY = 250;
@@ -138,6 +143,7 @@ public class DroidReaderDocument {
 	int mOffsetY = 0;
 	int mMarginOffsetX = 0;
 	int mMarginOffsetY = 0;
+    int mContentFitMode = 0;
 
 	int mDisplaySizeX = 1;
 	int mDisplaySizeY = 1;
@@ -149,7 +155,7 @@ public class DroidReaderDocument {
 	Matrix mPageMatrix = new Matrix();
 	boolean mIsScrollingX = false;
 	boolean mIsScrollingY = false;
-    
+
     boolean mHorizontalScrollLock = false;
 
 	RenderListener mRenderListener = new DummyRenderListener();
@@ -167,6 +173,8 @@ public class DroidReaderDocument {
 			mDocument.open(filename, password);
 			mPage.open(mDocument, pageNo, mDocument.isMemoryHog());
 		}
+        if (mContentFitMode != CONTENT_FIT_NONE)
+            calcContentFit();
 		mHavePixmap = false;
 		mMetadataDirty = true;
 		render(false);
@@ -185,6 +193,8 @@ public class DroidReaderDocument {
 			mPage.close();
 			mPage.open(mDocument, realPageNo, mDocument.isMemoryHog());
 		}
+        if (mContentFitMode != CONTENT_FIT_NONE)
+            calcContentFit();
 		mHavePixmap = false;
 		mMetadataDirty = true;
 		render(false);
@@ -260,6 +270,14 @@ public class DroidReaderDocument {
 		render(false);
 	}
 
+	void setContentFitMode(int newMode) {
+		if(LOG) Log.d(TAG, "setContentFitMode: "+newMode);
+		mContentFitMode = newMode;
+        calcContentFit();
+		mMetadataDirty = true;
+		render(false);
+	}
+
 	void offset(int x, int y, boolean isRelative) {
 		if(LOG) Log.d(TAG, "offset: "+(isRelative?"(rel) ":"(abs) ")+x+","+y);
 
@@ -286,6 +304,8 @@ public class DroidReaderDocument {
 		mDisplaySizeX = displaySizeX;
 		mDisplaySizeY = displaySizeY;
 		mMetadataDirty = true;
+        if (mContentFitMode != CONTENT_FIT_NONE)
+            calcContentFit();
 		mDoRender = true;
 		if(mRenderThread == null)
 			mRenderThread = new RenderThread();
@@ -319,6 +339,68 @@ public class DroidReaderDocument {
 			mRenderThread = null;
 		}
 	}
+
+    private void calcContentFit() {
+        float top;
+        float bottom;
+        float left;
+        float right;
+        float height;
+        float width;
+
+        top = mPage.mMediabox[3] - mPage.mContentbox[3];
+        bottom = mPage.mMediabox[3] - mPage.mContentbox[1];
+        left = mPage.mContentbox[0] - mPage.mMediabox[0];
+        right = mPage.mContentbox[2] - mPage.mMediabox[1];
+
+        if (top < 0)
+            top = 0;
+        if (bottom > mPage.mMediabox[3])
+            bottom = mPage.mMediabox[3];
+        if (left < 0)
+            left = 0;
+        if (right > mPage.mMediabox[2])
+            right = mPage.mMediabox[2];
+
+		if(((mPage.rotate + mRotation) % 180) == 90) {
+            width = bottom - top;
+            height = right - left;
+		} else {
+            height = bottom - top;
+            width = right - left;
+        }
+
+		if (mContentFitMode == CONTENT_FIT_ALL) {
+			float zoomH = mDisplaySizeY / height;
+			float zoomW = mDisplaySizeX / width;
+
+			if (zoomH < zoomW) {
+				mZoom = zoomH * 72 / mDpiY;
+			}
+			else {
+				mZoom = zoomW * 72 / mDpiX;
+			}
+		}
+
+		if (mContentFitMode == CONTENT_FIT_HEIGHT) {
+			mZoom = (mDisplaySizeY / height) * 72 / mDpiY;
+		}
+
+		if (mContentFitMode == CONTENT_FIT_WIDTH) {
+			mZoom = (mDisplaySizeX / width) * 72 / mDpiX;
+		}
+
+        if (mZoom > (float)4)
+            mZoom = (float)4;
+        if (mZoom < (float)0.05)
+            mZoom = (float)0.05;
+
+        mOffsetX = (int)(left * mZoom / 72 * mDpiX);
+        mOffsetY = (int)(top * mZoom / 72 * mDpiY);
+
+        Log.d(TAG,String.format("calcContentFit(): (%d,%d) - (%d,%d) Zoom = %6.3f D = (%d,%d) R = %d",(int)left,(int)top,(int)right,(int)bottom,mZoom,(int)mDisplaySizeX,(int)mDisplaySizeY,mPage.rotate + mRotation));
+    }
+
 
 	private void calcPageMetadata() {
 		if(LOG) Log.d(TAG, "calcPageMetadata()");
@@ -354,8 +436,8 @@ public class DroidReaderDocument {
 		// new zoom level and then re-set mZoom to its appropriate scale
 		// value. TODO: is there ever a case where zoomX != zoomY?
 		if (mZoom == ZOOM_FIT) {
-			float zoomH = mDisplaySizeY / pageHeight;
-			float zoomW = mDisplaySizeX / pageWidth;
+			float zoomH = ((float)mDisplaySizeY) / pageHeight;
+			float zoomW = ((float)mDisplaySizeX) / pageWidth;
 
 			if (zoomH < zoomW) {
 				zoomX = zoomY = zoomH;
@@ -368,12 +450,12 @@ public class DroidReaderDocument {
 		}
 
 		if (mZoom == ZOOM_FIT_HEIGHT) {
-			zoomX = zoomY = mDisplaySizeY / pageHeight;
+			zoomX = zoomY = ((float)mDisplaySizeY) / pageHeight;
 			mZoom = zoomY * 72 / mDpiY;
 		}
 
 		if (mZoom == ZOOM_FIT_WIDTH) {
-			zoomX = zoomY = mDisplaySizeX / pageWidth;
+			zoomX = zoomY = ((float)mDisplaySizeX) / pageWidth;
 			mZoom = zoomX * 72 / mDpiX;
 		}
 

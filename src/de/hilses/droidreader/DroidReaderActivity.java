@@ -24,10 +24,8 @@ the Free Software Foundation, either version 3 of the License, or
 
 package de.hilses.droidreader;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.lang.String;
 import java.net.URLDecoder;
 
 import org.openintents.intents.FileManagerIntents;
@@ -39,26 +37,25 @@ import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
 import android.preference.PreferenceManager;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.SubMenu;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.webkit.WebView;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import android.view.Gravity;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowManager;
 
 public class DroidReaderActivity extends Activity {
     private static final boolean LOG = false;
@@ -70,6 +67,7 @@ public class DroidReaderActivity extends Activity {
     private static final int DIALOG_ABOUT = 2;
     private static final int DIALOG_GOTO_PAGE = 3;
     private static final int DIALOG_WELCOME = 4;
+    private static final int DIALOG_ENTER_ZOOM = 5;
 
     private static final String PREFERENCE_EULA_ACCEPTED = "eula.accepted";
     private static final String PREFERENCES_EULA = "eula";
@@ -77,12 +75,12 @@ public class DroidReaderActivity extends Activity {
     protected DroidReaderView mReaderView = null;
     protected DroidReaderDocument mDocument = null;
 
+    protected Menu m_ZoomMenu;
+
     private String mFilename;
     private String mTemporaryFilename;
     private String mPassword;
 
-    private int mOffsetX;
-    private int mOffsetY;
     private int mPageNo;
 
     private boolean mDocumentIsOpen = false;
@@ -141,10 +139,11 @@ public class DroidReaderActivity extends Activity {
                 mDocument.mZoom = savedInstanceState.getFloat("zoom");
                 mDocument.mRotation = savedInstanceState.getInt("rotation");
                 mPageNo = savedInstanceState.getInt("page");
-                mOffsetX = savedInstanceState.getInt("offsetX");
-                mOffsetY = savedInstanceState.getInt("offsetY");
+//                mOffsetX = savedInstanceState.getInt("offsetX");
+//                mOffsetY = savedInstanceState.getInt("offsetY");
                 mDocument.mMarginOffsetX = savedInstanceState.getInt("marginOffsetX");
                 mDocument.mMarginOffsetY = savedInstanceState.getInt("marginOffsetY");
+                mDocument.mContentFitMode = savedInstanceState.getInt("contentFitMode");
                 openDocument();
                 mLoadedDocument = true;
             }
@@ -217,6 +216,7 @@ public class DroidReaderActivity extends Activity {
             outState.putInt("offsetY", mDocument.mOffsetY);
             outState.putInt("marginOffsetX", mDocument.mMarginOffsetX);
             outState.putInt("marginOffsetY", mDocument.mMarginOffsetY);
+            outState.putInt("contentFitMode", mDocument.mContentFitMode);
             outState.putString("password", mPassword);
             outState.putString("filename", mFilename);
             mDocument.closeDocument();
@@ -295,6 +295,62 @@ public class DroidReaderActivity extends Activity {
         return true;
     }
 
+    /** Creates the menu items */
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem mi;
+
+        super.onPrepareOptionsMenu(menu);
+
+        if (mDocumentIsOpen)
+        {
+            mi = menu.findItem(R.id.submenu_zoom);
+            if (mi != null)
+                mi.setEnabled(true);
+            mi = menu.findItem(R.id.submenu_view);
+            if (mi != null)
+                mi.setEnabled(true);
+            mi = menu.findItem(R.id.submenu_fit_content);
+            if (mi != null) {
+                mi.setEnabled(true);
+                SubMenu sm = mi.getSubMenu();
+                if (sm != null) {
+                    MenuItem smi;
+                    smi = sm.findItem(R.id.content_fit_none);
+                    if ((smi != null) && ((mDocument.mContentFitMode < 1) || (mDocument.mContentFitMode > 3)))
+                        smi.setChecked(true);
+                    smi = sm.findItem(R.id.content_fit);
+                    if ((smi != null) && (mDocument.mContentFitMode == 1))
+                        smi.setChecked(true);
+                    smi = sm.findItem(R.id.content_fit_width);
+                    if ((smi != null) && (mDocument.mContentFitMode == 2))
+                        smi.setChecked(true);
+                    smi = sm.findItem(R.id.content_fit_height);
+                    if ((smi != null) && (mDocument.mContentFitMode == 3))
+                        smi.setChecked(true);
+                }
+            }
+            mi = menu.findItem(R.id.submenu_goto);
+            if (mi != null)
+                mi.setEnabled(true);
+        } else {
+            mi = menu.findItem(R.id.submenu_zoom);
+            if (mi != null)
+                mi.setEnabled(false);
+            mi = menu.findItem(R.id.submenu_view);
+            if (mi != null)
+                mi.setEnabled(false);
+            mi = menu.findItem(R.id.submenu_fit_content);
+            if (mi != null)
+                mi.setEnabled(false);
+            mi = menu.findItem(R.id.submenu_goto);
+            if (mi != null)
+                mi.setEnabled(false);
+        }
+
+        return true;
+    }
+
     /** Handles item selections */
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
@@ -323,8 +379,26 @@ public class DroidReaderActivity extends Activity {
         case R.id.zoom_fith:
             mDocument.setZoom(DroidReaderDocument.ZOOM_FIT_HEIGHT, false);
             return true;
+        case R.id.zoom_enter:
+            showDialog(DIALOG_ENTER_ZOOM);
+            return true;
         case R.id.zoom_orig:
             mDocument.setZoom(1.0F, false);
+            return true;
+
+        // Content fitting:
+
+        case R.id.content_fit_none:
+            mDocument.setContentFitMode(0);
+            return true;
+        case R.id.content_fit:
+            mDocument.setContentFitMode(1);
+            return true;
+        case R.id.content_fit_width:
+            mDocument.setContentFitMode(2);
+            return true;
+        case R.id.content_fit_height:
+            mDocument.setContentFitMode(3);
             return true;
 
         // Rotation:
@@ -429,8 +503,7 @@ public class DroidReaderActivity extends Activity {
         try {
             // File names are URL-encoded (i.e. special chars are replaced
             // with %-escaped numbers). Decode them before opening.
-            URLDecoder urldecoder = new URLDecoder();
-            mTemporaryFilename = urldecoder.decode(mTemporaryFilename,"utf-8");
+            mTemporaryFilename = URLDecoder.decode(mTemporaryFilename,"utf-8");
 
             // Do some sanity checks on the supplied filename.
             File f=new File(mTemporaryFilename);
@@ -479,10 +552,20 @@ public class DroidReaderActivity extends Activity {
         try {
             if(!(no == 0 && isRelative))
                 mDocument.openPage(no, isRelative);
-            this.setTitle(new File(mFilename).getName()+" ("+mDocument.mPage.no+"/"+mDocument.mDocument.pagecount+")");
+            this.setTitle(new File(mFilename).getName()+String.format(" (%d/%d)",mDocument.mPage.no,mDocument.mDocument.pagecount));
+            mPageNo = mDocument.mPage.no;
         } catch (PageLoadException e) {
             // TODO Auto-generated catch block
         }
+    }
+
+    protected void setZoom(float newZoom) {
+        newZoom = newZoom / (float)100.0;
+        if (newZoom > 16.0)
+            newZoom = (float)16.0;
+        if (newZoom < 0.0625)
+            newZoom = (float)0.0625;
+        mDocument.setZoom(newZoom, false);
     }
 
     public void onTap (float X, float Y) {
@@ -506,7 +589,21 @@ public class DroidReaderActivity extends Activity {
                 prev = true;
             if ((X>right) && (Y > bottom))
                 next = true;
-
+            if ((X>left) && (X<right) && (Y > bottom)) {
+                Log.d("DroidReaderMetrics",String.format("Zoom = %5.2f%%",mDocument.mZoom*100.0));
+                Log.d("DroidReaderMetrics",String.format("Page size = (%2.0f,%2.0f)",
+                                    mDocument.mPage.mMediabox[2]-mDocument.mPage.mMediabox[0],
+                                    mDocument.mPage.mMediabox[3]-mDocument.mPage.mMediabox[1]));
+                Log.d("DroidReaderMetrics",String.format("Display size = (%d,%d)",mDocument.mDisplaySizeX,mDocument.mDisplaySizeY));
+                Log.d("DroidReaderMetrics",String.format("DPI = (%d, %d)",mDocument.mDpiX,mDocument.mDpiY));
+                Log.d("DroidReaderMetrics",String.format("Content size = (%2.0f,%2.0f)",
+                                    mDocument.mPage.mContentbox[2]-mDocument.mPage.mContentbox[0],
+                                    mDocument.mPage.mContentbox[3]-mDocument.mPage.mContentbox[1]));
+                Log.d("DroidReaderMetrics",String.format("Content offset = (%2.0f,%2.0f)",
+                                    mDocument.mPage.mContentbox[0],mDocument.mPage.mContentbox[1]));
+                Log.d("DroidReaderMetrics",String.format("Document offset = (%d,%d)",
+                                    mDocument.mOffsetX,mDocument.mOffsetY));
+            }
             if (next) {
                 if(mDocument.havePage(1, true))
                     openPage(1, true);
@@ -583,6 +680,37 @@ public class DroidReaderActivity extends Activity {
             return showHtmlDialog(R.string.menu_file_about,"about.html");
         case DIALOG_WELCOME:
             return showHtmlDialog(R.string.welcome_title,"welcome.html");
+        case DIALOG_ENTER_ZOOM:
+            AlertDialog.Builder zoomBuilder = new AlertDialog.Builder(this);
+            zoomBuilder.setMessage(R.string.prompt_enter_zoom);
+            View zoominput = getLayoutInflater().inflate(R.layout.zoomdialog,
+                    (ViewGroup) findViewById(R.id.input_zoom));
+            zoomBuilder.setView(zoominput);
+            zoomBuilder.setCancelable(false);
+            zoomBuilder.setPositiveButton(R.string.button_set_zoom,
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        try {
+                            DroidReaderActivity.this.setZoom(
+                                Float.parseFloat(
+                                    ((EditText)
+                                            ((AlertDialog) dialog).findViewById(R.id.input_zoom))
+                                            .getText()
+                                            .toString()));
+                        } catch (NumberFormatException e) {
+                            // TODO Auto-generated catch block
+                        }
+                        dialog.dismiss();
+                    }
+                });
+            zoomBuilder.setNegativeButton(R.string.button_page_cancel,
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
+            AlertDialog zoomDialog = zoomBuilder.create();
+            return zoomDialog;
         }
         return null;
     }
@@ -590,7 +718,7 @@ public class DroidReaderActivity extends Activity {
     AlertDialog showHtmlDialog(int titleResource, String htmlFile) {
         AlertDialog.Builder htmlBuilder = new AlertDialog.Builder(this);
         WebView htmlWebView = new WebView(this);
-        htmlWebView.loadData(readHtml(htmlFile).toString(), "text/html", "UTF-8");
+        htmlWebView.loadUrl("file:///android_asset/"+htmlFile);
         htmlBuilder.setView(htmlWebView);
         htmlBuilder.setCancelable(false);
         htmlBuilder.setPositiveButton(R.string.button_ok,
@@ -602,27 +730,6 @@ public class DroidReaderActivity extends Activity {
         AlertDialog htmlDialog = htmlBuilder.create();
         htmlDialog.setTitle(getString(titleResource));
         return htmlDialog;
-    }
-
-    private CharSequence readHtml(String htmlFile) {
-        BufferedReader in = null;
-        try {
-            in = new BufferedReader(new InputStreamReader(this.getAssets().open(htmlFile)));
-            String line;
-            StringBuilder buffer = new StringBuilder();
-            while ((line = in.readLine()) != null)
-                buffer.append(line).append('\n');
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException e) {
-                    // We can't do anything...
-                }
-            }
-            return buffer;
-        } catch (IOException e) {
-            return "";
-        }
     }
 
     protected void readOrWriteDB(boolean doWrite) {
@@ -647,12 +754,12 @@ public class DroidReaderActivity extends Activity {
                         pdfDB.execSQL("UPDATE LastReadPoint SET " +
                             "Zoom = " + mDocument.mZoom + " , " +
                             "Rotation = " + mDocument.mRotation + " , " +
-                            "Page = " + mDocument.mPage.no + " , " +
+                            "Page = " + mPageNo + " , " +
                             "OffsetX = " + mDocument.mOffsetX + " , " +
                             "OffsetY = " + mDocument.mOffsetY + " , " +
                             "MarginOffsetX = " + mDocument.mMarginOffsetX + " , " +
                             "MarginOffsetY = " + mDocument.mMarginOffsetY + " , " +
-                            "ContentFitMode = 0 , MemoryMode = 0 ," +
+                            "ContentFitMode = " + mDocument.mContentFitMode + " , MemoryMode = 0 ," +
                             "Password = '" + mPassword + "' " +
                             "WHERE Filename = '" + mFilename + "';");
                     } else {
@@ -661,10 +768,11 @@ public class DroidReaderActivity extends Activity {
                         mPageNo = c.getInt(c.getColumnIndex("Page"));
                         if (mPageNo == 0)
                             mPageNo = 1;
-                        mOffsetX = c.getInt(c.getColumnIndex("OffsetX"));
-                        mOffsetY = c.getInt(c.getColumnIndex("OffsetY"));
+//                        mOffsetX = c.getInt(c.getColumnIndex("OffsetX"));
+//                        mOffsetY = c.getInt(c.getColumnIndex("OffsetY"));
                         mDocument.mMarginOffsetX = c.getInt(c.getColumnIndex("MarginOffsetX"));
                         mDocument.mMarginOffsetY = c.getInt(c.getColumnIndex("MarginOffsetY"));
+                        mDocument.mContentFitMode = c.getInt(c.getColumnIndex("ContentFitMode"));
 
 // Don't restore the password. This would be a bit of a security nightmare,
 // because documents would be unsecured after the password was entered once -
@@ -682,20 +790,22 @@ public class DroidReaderActivity extends Activity {
                             mFilename + "', " +
                             mDocument.mZoom + " , " +
                             mDocument.mRotation + " , " +
-                            mDocument.mPage.no + " , " +
+                            mPageNo + " , " +
                             mDocument.mOffsetX + " , " +
                             mDocument.mOffsetY + " , " +
                             mDocument.mMarginOffsetX + " , " +
-                            mDocument.mMarginOffsetY + " , 0 , 0 ," +
-                            "'" + mPassword + "');" );
+                            mDocument.mMarginOffsetY + " , " +
+                            mDocument.mContentFitMode + " , 0 , '" +
+                            mPassword + "');" );
                     } else {
                         // reading: Set some default values
-                        mDocument.mZoom = mDocument.ZOOM_FIT;
+                        mDocument.mZoom = DroidReaderDocument.ZOOM_FIT;
                         mDocument.mRotation = 0;
-                        mOffsetX = 0;
-                        mOffsetY = 0;
+//                        mOffsetX = 0;
+//                        mOffsetY = 0;
                         mDocument.mMarginOffsetX = 0;
                         mDocument.mMarginOffsetY = 0;
+                        mDocument.mContentFitMode = 0;
                         mPageNo = 1;
                     }
                 }

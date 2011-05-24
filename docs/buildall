@@ -8,7 +8,7 @@ rm -rf gen/de/hilses
 ant clean
 
 cd jni
-ndk-build
+ndk-build -B
 cd -
 
 ant debug
