@@ -24,7 +24,6 @@ the Free Software Foundation, either version 3 of the License, or
 
 package de.hilses.droidreader;
 
-import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector.OnGestureListener;

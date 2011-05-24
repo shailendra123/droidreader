@@ -1,17 +1,37 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-	<item android:id="@+id/submenu_zoom"
-          android:title="@string/menu_zoom"
+	<item android:id="@+id/submenu_view"
+          android:title="@string/menu_view"
           android:icon="@drawable/eye">
 		<menu>
-			<item android:id="@+id/zoom_in" android:title="@string/menu_zoom_in"/>
-			<item android:id="@+id/zoom_out" android:title="@string/menu_zoom_out"/>
-            <item android:id="@+id/zoom_fit" android:title="@string/menu_zoom_fit"/>
-            <item android:id="@+id/zoom_fitw" android:title="@string/menu_zoom_fitw"/>
-            <item android:id="@+id/zoom_fith" android:title="@string/menu_zoom_fith"/>
-			<item android:id="@+id/zoom_orig" android:title="@string/menu_zoom_orig"/>
 			<item android:id="@+id/set_margin_offset" android:title="@string/menu_set_margin_offset"/>
             <item android:id="@+id/rotation_left" android:title="@string/menu_rotation_left"/>
             <item android:id="@+id/rotation_right" android:title="@string/menu_rotation_right"/>
+		</menu>
+	</item>
+	<item android:id="@+id/submenu_zoom"
+          android:title="@string/menu_zoom"
+          android:icon="@drawable/zoom">
+		<menu>
+            <item android:id="@+id/zoom_in" android:title="@string/menu_zoom_in"/>
+            <item android:id="@+id/zoom_out" android:title="@string/menu_zoom_out"/>
+            <item android:id="@+id/zoom_fit" android:title="@string/menu_zoom_fit"/>
+            <item android:id="@+id/zoom_fitw" android:title="@string/menu_zoom_fitw"/>
+            <item android:id="@+id/zoom_fith" android:title="@string/menu_zoom_fith"/>
+            <item android:id="@+id/zoom_enter" android:title="@string/menu_zoom_enter"/>
+            <item android:id="@+id/zoom_orig" android:title="@string/menu_zoom_orig"/>
+		</menu>
+	</item>
+	<item android:id="@+id/submenu_fit_content"
+          android:title="@string/menu_fit_content"
+          android:icon="@drawable/fitcontent">
+		<menu>
+            <group android:id="@+id/group_fit_content"
+                   android:checkableBehavior="single">
+                <item android:id="@+id/content_fit_none" android:title="@string/menu_content_fit_none"/>
+                <item android:id="@+id/content_fit" android:title="@string/menu_content_fit"/>
+                <item android:id="@+id/content_fit_width" android:title="@string/menu_content_fit_width"/>
+                <item android:id="@+id/content_fit_height" android:title="@string/menu_content_fit_height"/>
+            </group>
 		</menu>
 	</item>
 	<item android:id="@+id/submenu_goto"
@@ -36,3 +56,4 @@
 		</menu>
 	</item>
 </menu>
+

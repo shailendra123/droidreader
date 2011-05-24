@@ -7,19 +7,23 @@
 <string name="button_pwddialog_cancel">Cancel</string>
 <string name="button_pwddialog_open">Open PDF</string>
 <string name="button_ok">OK</string>
+<string name="button_set_zoom">Set zoom</string>
 <string name="error_no_filemanager_installed">No filemanager found that we could use!</string>
 <string name="error_no_such_page">Sorry, no such page!</string>
 <string name="error_only_file_uris">Sorry, only &quot;file://&quot; URIs are currently supported.</string>
 <string name="error_file_open_failed">Failed to open file.</string>
 <string name="error_opening_document">Failed to open the document. The PDF file might be broken.</string>
 <string name="error_wrong_password">The password you have given is incorrect!</string>
-<string name="menu_zoom">View</string>
+<string name="menu_view">View</string>
+<string name="menu_zoom">Zoom</string>
+<string name="menu_fit_content">Fit content</string>
 <string name="menu_set_margin_offset">Set margin offset</string>
 <string name="menu_zoom_in">Zoom in</string>
 <string name="menu_zoom_out">Zoom out</string>
 <string name="menu_zoom_fit">Fit to page</string>
 <string name="menu_zoom_fitw">Fit to page width</string>
 <string name="menu_zoom_fith">Fit to page height</string>
+<string name="menu_zoom_enter">Enter zoom factor...</string>
 <string name="menu_zoom_orig">Reset to 100%</string>
 <string name="menu_rotation">Rotate</string>
 <string name="menu_rotation_left">Rotate 90° left</string>
@@ -32,11 +36,12 @@
 <string name="menu_goto">Go to page</string>
 <string name="menu_goto_first">First page</string>
 <string name="menu_goto_last">Last page</string>
-<string name="menu_goto_ask">Enter page no...</string>
+<string name="menu_goto_ask">Enter page number...</string>
 <string name="open_title">Open PDF</string>
 <string name="welcome_title">Welcome to DroidReader!</string>
 <string name="prompt_goto_page">Enter the page number you want to jump to:</string>
 <string name="prompt_password">The file you are opening is protected with a password. Please enter it here:</string>
+<string name="prompt_enter_zoom">Enter the zoom factor to use, as a percentage:</string>
 <string name="prefs_zoom">Zoom on startup:</string>
 <string name="prefs_zoom_type">Zoom type</string>
 <string name="prefs_zoom_percent">Zoom in percent</string>
@@ -78,4 +83,8 @@
 <string name="prefs_invert_display">Invert display</string>
 <string name="prefs_full_screen">Full screen</string>
 <string name="prefs_horizontal_scroll_lock">Horizontal scroll lock</string>
+<string name="menu_content_fit_none">No fitting</string>
+<string name="menu_content_fit">All content</string>
+<string name="menu_content_fit_width">Content width</string>
+<string name="menu_content_fit_height">Content height</string>
 </resources>
