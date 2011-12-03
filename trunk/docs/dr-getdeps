@@ -7,13 +7,12 @@ git clone git://git.sv.nongnu.org/freetype/freetype2.git freetype
 git clone git://git.ghostscript.com/jbig2dec.git jbig2dec
 
 # IJG JPEG
-# just download from www.ijg.org (version 8b, 16 May 2010)
+wget http://www.ijg.org/files/jpegsrc.v8c.tar.gz
+tar -xzf jpegsrc.v8c.tar.gz
+mv jpeg-8c jpeg
 
 # OpenJPEG
 svn checkout http://openjpeg.googlecode.com/svn/trunk/ openjpeg
 
 # muPDF
 darcs get --lazy http://mupdf.com/repos/mupdf
-
-
-

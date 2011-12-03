@@ -14,7 +14,7 @@ git pull
 cd ..
 
 # IJG JPEG
-# just download from www.ijg.org (version 8b, 16 May 2010)
+# just download from www.ijg.org (version 8c, 16 Jan 2011)
 
 # OpenJPEG
 cd openjpeg
@@ -31,5 +31,10 @@ tar --exclude-backups --exclude-vcs -cjf dr-deps.tar.bz2 freetype jbig2dec jpeg 
 
 # Update the droidreader directories, if a destination was entered
 if [ "$1" != '' ]; then
-   tar -C $1/jni -xvjf dr-deps.tar.bz2 
+   rm -rf $1/jni/freetype
+   rm -rf $1/jni/jbig2dec
+   rm -rf $1/jni/jpeg
+   rm -rf $1/jni/openjpeg
+   rm -rf $1/jni/mupdf
+   tar -C $1/jni -xjf dr-deps.tar.bz2
 fi

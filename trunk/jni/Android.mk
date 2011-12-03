@@ -95,7 +95,13 @@ LOCAL_SRC_FILES := \
 	openjpeg/libopenjpeg/t1.c \
 	openjpeg/libopenjpeg/t2.c \
 	openjpeg/libopenjpeg/tcd.c \
-	openjpeg/libopenjpeg/tgt.c
+	openjpeg/libopenjpeg/tgt.c \
+   openjpeg/libopenjpeg/function_list.c \
+   openjpeg/libopenjpeg/cidx_manager.c \
+   openjpeg/libopenjpeg/thix_manager.c \
+   openjpeg/libopenjpeg/tpix_manager.c \
+   openjpeg/libopenjpeg/phix_manager.c \
+   openjpeg/libopenjpeg/ppix_manager.c
 
 LOCAL_C_INCLUDES := \
 	$(LOCAL_PATH)/openjpeg-overlay
