@@ -856,8 +856,13 @@ JNIEXPORT void JNICALL
     pixmap.w = viewbox.x1 - viewbox.x0;
     pixmap.h = viewbox.y1 - viewbox.y0;
     pixmap.refs = 1;
-    pixmap.n = 4;
-    pixmap.colorspace = fz_devicebgr;
+    if (flags & PDF_RENDER_DISPLAY_INVERT) {
+        pixmap.n = 2;
+        pixmap.colorspace = fz_devicegray;
+    } else {
+        pixmap.n = 4;
+        pixmap.colorspace = fz_devicebgr;
+    }
     pixmap.mask = 0;
     pixmap.samples = (void*)buffer;
 
@@ -871,8 +876,15 @@ JNIEXPORT void JNICALL
     fz_freedevice(dev);
 
     if (flags & PDF_RENDER_DISPLAY_INVERT) {
-        for (i=0;i<j;i++)
-            buffer[i] ^= 0xffffffff;
+        unsigned char *pGS = (unsigned char *)buffer;
+        for (i=j-1;i>=0;i--)
+        {
+            buffer[i] = ((jint)pGS[i*2] +
+                        ((jint)pGS[i*2] << 8) +
+                        ((jint)pGS[i*2] << 16) +
+                        ((jint)pGS[i*2 + 1] << 24))
+                        ^ 0xffffffff;
+        }
     }
 
     (*env)->ReleasePrimitiveArrayCritical(env, bufferarray, buffer, 0);
